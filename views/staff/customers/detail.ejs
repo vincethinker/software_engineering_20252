@@ -1,0 +1,62 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/customers" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0"><%= customer.full_name %></h4>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h5 class="mb-3">Thông tin khách hàng</h5>
+      <div class="mb-2"><span class="text-muted small">Họ và tên</span><div><strong><%= customer.full_name %></strong></div></div>
+      <div class="mb-2"><span class="text-muted small">Số điện thoại</span><div><%= customer.phone %></div></div>
+      <div class="mb-2"><span class="text-muted small">Email</span><div><%= customer.email || '—' %></div></div>
+      <div class="mb-3"><span class="text-muted small">Địa chỉ</span><div><%= customer.address || '—' %></div></div>
+      <a href="/staff/customers/<%= customer._id %>/edit" class="btn btn-outline-primary btn-sm">Chỉnh sửa</a>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h5 class="mb-3">Thành viên VIP</h5>
+      <% if (!member) { %>
+        <p class="text-muted mb-3">Khách hàng này chưa đăng ký thành viên.</p>
+        <form action="/staff/customers/<%= customer._id %>/enroll" method="POST">
+          <button type="submit" class="btn btn-primary btn-sm">Đăng ký thành viên</button>
+        </form>
+      <% } else { %>
+        <%
+          const tierColors = { Đồng:'bg-secondary', Bạc:'bg-light text-dark border', Vàng:'bg-warning text-dark', 'Kim Cương':'bg-primary' };
+        %>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge fs-6 <%= tierColors[member.tier] %>"><%= member.tier %></span>
+          <span class="text-muted small">từ <%= new Date(member.register_date).toLocaleDateString('vi-VN') %></span>
+        </div>
+        <div class="mb-3">
+          <span class="text-muted small">Tổng điểm</span>
+          <div class="fs-4 fw-bold" style="color:var(--brown)"><%= member.total_points %> điểm</div>
+        </div>
+        <hr class="my-3">
+        <p class="text-muted small mb-2">Cập nhật hạng & điểm thủ công:</p>
+        <form action="/staff/customers/<%= customer._id %>/membership" method="POST">
+          <div class="mb-2">
+            <label class="form-label form-label-sm">Hạng thành viên</label>
+            <select name="tier" class="form-select form-select-sm">
+              <% ['Đồng','Bạc','Vàng','Kim Cương'].forEach(t => { %>
+                <option value="<%= t %>" <%= member.tier===t?'selected':'' %>><%= t %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label form-label-sm">Điểm tích lũy</label>
+            <input type="number" name="total_points" class="form-control form-control-sm" value="<%= member.total_points %>" min="0">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Lưu thay đổi</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/staff-footer') %>

@@ -1,0 +1,61 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Đặt chỗ làm việc</h4>
+</div>
+
+<ul class="nav nav-pills mb-3">
+  <% [['all','Tất cả'],['pending','Chờ xác nhận'],['confirmed','Đã xác nhận'],['cancelled','Đã hủy']].forEach(([val,label]) => { %>
+    <li class="nav-item">
+      <a class="nav-link <%= currentStatus===val?'active':'' %>" href="/staff/bookings?status=<%= val %>"><%= label %></a>
+    </li>
+  <% }) %>
+</ul>
+
+<%
+const badgeMap = { pending:'bg-warning text-dark', confirmed:'bg-success', cancelled:'bg-secondary' };
+%>
+
+<div class="card">
+  <table class="table table-hover mb-0">
+    <thead class="table-dark">
+      <tr><th>Ngày</th><th>Thời gian</th><th>Số người</th><th>Trạng thái</th><th>Thao tác</th></tr>
+    </thead>
+    <tbody>
+      <% if (bookings.length === 0) { %>
+        <tr><td colspan="5" class="text-center text-muted py-4">Chưa có đặt chỗ nào.</td></tr>
+      <% } %>
+      <% bookings.forEach(booking => { %>
+        <tr>
+          <td><%= new Date(booking.booking_date).toLocaleDateString('vi-VN') %></td>
+          <td><%= booking.start_time %> – <%= booking.end_time %></td>
+          <td><%= booking.number_of_people %> người</td>
+          <td><span class="badge <%= badgeMap[booking.booking_status] %>">
+            <%= booking.booking_status==='pending'?'Chờ xác nhận':booking.booking_status==='confirmed'?'Đã xác nhận':'Đã hủy' %>
+          </span></td>
+          <td class="d-flex gap-1">
+            <% if (booking.booking_status === 'pending') { %>
+              <form action="/staff/bookings/<%= booking._id %>/status" method="POST">
+                <input type="hidden" name="booking_status" value="confirmed">
+                <button type="submit" class="btn btn-sm btn-success">Xác nhận</button>
+              </form>
+              <form action="/staff/bookings/<%= booking._id %>/status" method="POST" onsubmit="return confirm('Hủy đặt chỗ này?')">
+                <input type="hidden" name="booking_status" value="cancelled">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Hủy</button>
+              </form>
+            <% } else if (booking.booking_status === 'confirmed') { %>
+              <form action="/staff/bookings/<%= booking._id %>/status" method="POST" onsubmit="return confirm('Hủy đặt chỗ đã xác nhận?')">
+                <input type="hidden" name="booking_status" value="cancelled">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Hủy</button>
+              </form>
+            <% } else { %>
+              <span class="text-muted small">—</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../../partials/staff-footer') %>

@@ -1,0 +1,105 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/events" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0">Chi tiết sự kiện</h4>
+</div>
+
+<%
+const statusBadge = { pending:'bg-warning text-dark', confirmed:'bg-success', cancelled:'bg-secondary' };
+const statusVN    = { pending:'Chờ xử lý', confirmed:'Đã xác nhận', cancelled:'Đã hủy' };
+const depositVN   = { pending:'Chờ thanh toán', received:'Đã nhận', confirmed:'Đã xác nhận' };
+%>
+
+<div class="card p-4 mb-4">
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="text-muted small">Tên sự kiện</div><strong><%= event.event_name %></strong></div>
+    <div class="col-md-4"><div class="text-muted small">Ngày</div><%= new Date(event.event_date).toLocaleDateString('vi-VN') %></div>
+    <div class="col-md-4"><div class="text-muted small">Thời gian</div><%= event.start_time %> – <%= event.end_time %></div>
+    <div class="col-md-4"><div class="text-muted small">Số người tham gia</div><%= event.participant_count %> người</div>
+    <div class="col-md-4"><div class="text-muted small">Báo giá</div><strong><%= Number(event.quotation_amount).toLocaleString('vi-VN') %>đ</strong></div>
+    <div class="col-md-4"><div class="text-muted small">Trạng thái</div>
+      <span class="badge <%= statusBadge[event.registration_status] %>"><%= statusVN[event.registration_status] || event.registration_status %></span>
+    </div>
+  </div>
+  <% if (event.registration_status !== 'confirmed') { %>
+    <hr class="my-2">
+    <form action="/staff/events/<%= event._id %>/status" method="POST" class="d-flex gap-2 align-items-center">
+      <label class="form-label mb-0 text-muted small">Cập nhật trạng thái:</label>
+      <select name="registration_status" class="form-select form-select-sm" style="width:160px">
+        <option value="pending"   <%= event.registration_status==='pending'   ?'selected':'' %>>Chờ xử lý</option>
+        <option value="cancelled" <%= event.registration_status==='cancelled' ?'selected':'' %>>Đã hủy</option>
+      </select>
+      <button type="submit" class="btn btn-sm btn-outline-primary">Lưu</button>
+    </form>
+  <% } %>
+</div>
+
+<% if (drinkItems.length > 0) { %>
+  <h5 class="mb-2">Đồ uống</h5>
+  <div class="card mb-4">
+    <table class="table mb-0">
+      <thead class="table-light"><tr><th>Tên</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th></tr></thead>
+      <tbody>
+        <% drinkItems.forEach(item => { %>
+          <tr>
+            <td><%= item.drink_id ? item.drink_id.drink_name : '(đã xóa)' %></td>
+            <td><%= Number(item.unit_price).toLocaleString('vi-VN') %>đ</td>
+            <td><%= item.quantity %></td>
+            <td><%= Number(item.unit_price * item.quantity).toLocaleString('vi-VN') %>đ</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<% if (snackItems.length > 0) { %>
+  <h5 class="mb-2">Đồ ăn nhẹ</h5>
+  <div class="card mb-4">
+    <table class="table mb-0">
+      <thead class="table-light"><tr><th>Tên</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th></tr></thead>
+      <tbody>
+        <% snackItems.forEach(item => { %>
+          <tr>
+            <td><%= item.snack_id ? item.snack_id.snack_name : '(đã xóa)' %></td>
+            <td><%= Number(item.unit_price).toLocaleString('vi-VN') %>đ</td>
+            <td><%= item.quantity %></td>
+            <td><%= Number(item.unit_price * item.quantity).toLocaleString('vi-VN') %>đ</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<h5 class="mb-2">Tiền cọc</h5>
+<div class="card p-4 mb-4">
+  <% if (!deposit) { %>
+    <p class="text-muted mb-0">Chưa có thông tin cọc — khách hàng chưa gửi thông tin thanh toán.</p>
+  <% } else if (deposit.deposit_status === 'confirmed') { %>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-success fs-6">✓ Đã xác nhận cọc</span>
+      <span class="text-muted small">
+        <%= Number(deposit.deposit_amount).toLocaleString('vi-VN') %>đ
+        qua <%= deposit.payment_method %>
+        ngày <%= new Date(deposit.deposit_date).toLocaleDateString('vi-VN') %>
+      </span>
+    </div>
+  <% } else { %>
+    <div class="row g-2 mb-3">
+      <div class="col-md-3"><div class="text-muted small">Số tiền</div><strong><%= Number(deposit.deposit_amount).toLocaleString('vi-VN') %>đ</strong></div>
+      <div class="col-md-3"><div class="text-muted small">Phương thức</div><%= deposit.payment_method %></div>
+      <div class="col-md-3"><div class="text-muted small">Trạng thái cọc</div>
+        <span class="badge bg-warning text-dark"><%= depositVN[deposit.deposit_status] || deposit.deposit_status %></span>
+      </div>
+    </div>
+    <form action="/staff/events/<%= event._id %>/confirm-deposit" method="POST"
+          onsubmit="return confirm('Xác nhận đã nhận tiền cọc?')">
+      <button type="submit" class="btn btn-success">✓ Xác nhận đã nhận cọc</button>
+    </form>
+    <p class="text-muted small mt-2 mb-0">Xác nhận sẽ chuyển trạng thái đăng ký thành "Đã xác nhận".</p>
+  <% } %>
+</div>
+
+<%- include('../../partials/staff-footer') %>

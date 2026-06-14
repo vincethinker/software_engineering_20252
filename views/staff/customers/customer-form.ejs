@@ -1,0 +1,33 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/customers" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0"><%= customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng' %></h4>
+</div>
+
+<div class="card p-4" style="max-width:560px">
+  <form action="<%= action %>" method="POST">
+    <div class="mb-3">
+      <label class="form-label">Họ và tên <span class="text-danger">*</span></label>
+      <input type="text" name="full_name" class="form-control" required value="<%= customer ? customer.full_name : '' %>">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+      <input type="text" name="phone" class="form-control" required value="<%= customer ? customer.phone : '' %>">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" name="email" class="form-control" value="<%= customer ? customer.email : '' %>">
+    </div>
+    <div class="mb-4">
+      <label class="form-label">Địa chỉ</label>
+      <input type="text" name="address" class="form-control" value="<%= customer ? customer.address : '' %>">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary"><%= customer ? 'Lưu thay đổi' : 'Thêm khách hàng' %></button>
+      <a href="/staff/customers" class="btn btn-outline-secondary">Hủy</a>
+    </div>
+  </form>
+</div>
+
+<%- include('../../partials/staff-footer') %>

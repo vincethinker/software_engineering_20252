@@ -1,0 +1,44 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Đăng ký sự kiện</h4>
+</div>
+
+<ul class="nav nav-pills mb-3">
+  <% [['all','Tất cả'],['pending','Chờ xử lý'],['confirmed','Đã xác nhận'],['cancelled','Đã hủy']].forEach(([val,label]) => { %>
+    <li class="nav-item">
+      <a class="nav-link <%= currentStatus===val?'active':'' %>" href="/staff/events?status=<%= val %>"><%= label %></a>
+    </li>
+  <% }) %>
+</ul>
+
+<%
+const badgeMap = { pending:'bg-warning text-dark', confirmed:'bg-success', cancelled:'bg-secondary' };
+const statusVN = { pending:'Chờ xử lý', confirmed:'Đã xác nhận', cancelled:'Đã hủy' };
+%>
+
+<div class="card">
+  <table class="table table-hover mb-0">
+    <thead class="table-dark">
+      <tr><th>Tên sự kiện</th><th>Ngày</th><th>Thời gian</th><th>Số người</th><th>Báo giá</th><th>Trạng thái</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% if (events.length === 0) { %>
+        <tr><td colspan="7" class="text-center text-muted py-4">Chưa có sự kiện nào.</td></tr>
+      <% } %>
+      <% events.forEach(event => { %>
+        <tr>
+          <td><strong><%= event.event_name %></strong></td>
+          <td><%= new Date(event.event_date).toLocaleDateString('vi-VN') %></td>
+          <td><%= event.start_time %> – <%= event.end_time %></td>
+          <td><%= event.participant_count %> người</td>
+          <td><%= Number(event.quotation_amount).toLocaleString('vi-VN') %>đ</td>
+          <td><span class="badge <%= badgeMap[event.registration_status] %>"><%= statusVN[event.registration_status] || event.registration_status %></span></td>
+          <td><a href="/staff/events/<%= event._id %>" class="btn btn-sm btn-outline-secondary">Xem</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../../partials/staff-footer') %>

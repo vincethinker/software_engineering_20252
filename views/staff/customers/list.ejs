@@ -1,0 +1,50 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0">Khách hàng</h4>
+  <a href="/staff/customers/add" class="btn btn-primary btn-sm">+ Thêm khách hàng</a>
+</div>
+
+<div class="card">
+  <table class="table table-hover mb-0">
+    <thead class="table-dark">
+      <tr><th>Họ tên</th><th>Số điện thoại</th><th>Email</th><th>Trạng thái VIP</th><th>Ngày tham gia</th><th>Thao tác</th></tr>
+    </thead>
+    <tbody>
+      <% if (customers.length === 0) { %>
+        <tr><td colspan="6" class="text-center text-muted py-4">Chưa có khách hàng nào.</td></tr>
+      <% } %>
+      <% customers.forEach(c => { %>
+        <%
+          const member = memberMap[c._id.toString()];
+          const tierColors = { Đồng:'bg-secondary', Bạc:'bg-light text-dark border', Vàng:'bg-warning text-dark', 'Kim Cương':'bg-primary' };
+          const tierClass = member ? (tierColors[member.tier] || 'bg-secondary') : null;
+        %>
+        <tr>
+          <td><strong><%= c.full_name %></strong></td>
+          <td><%= c.phone %></td>
+          <td><%= c.email || '—' %></td>
+          <td>
+            <% if (member) { %>
+              <span class="badge <%= tierClass %>"><%= member.tier %></span>
+              <span class="text-muted small ms-1"><%= member.total_points %> điểm</span>
+            <% } else { %>
+              <span class="text-muted small">Chưa là thành viên</span>
+            <% } %>
+          </td>
+          <td><%= new Date(c.created_at).toLocaleDateString('vi-VN') %></td>
+          <td class="d-flex gap-1">
+            <a href="/staff/customers/<%= c._id %>" class="btn btn-sm btn-outline-secondary">Xem</a>
+            <a href="/staff/customers/<%= c._id %>/edit" class="btn btn-sm btn-outline-secondary">Sửa</a>
+            <form action="/staff/customers/<%= c._id %>/delete" method="POST"
+                  onsubmit="return confirm('Xóa khách hàng này? Thông tin thành viên của họ cũng sẽ bị xóa.')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../../partials/staff-footer') %>

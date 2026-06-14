@@ -1,0 +1,41 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0">Đồ ăn</h4>
+  <a href="/staff/snacks/add" class="btn btn-primary btn-sm">+ Thêm món</a>
+</div>
+
+<div class="card">
+  <table class="table table-hover mb-0">
+    <thead class="table-dark">
+      <tr>
+        <th>Tên</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (snacks.length === 0) { %>
+        <tr><td colspan="5" class="text-center text-muted py-4">Chưa có món nào.</td></tr>
+      <% } %>
+      <% snacks.forEach(snack => { %>
+        <tr>
+          <td><%= snack.snack_name %></td>
+          <td><%= Number(snack.price).toLocaleString('vi-VN') %>đ</td>
+          <td><%= snack.quantity ?? '—' %></td>
+          <td>
+            <span class="badge <%= snack.status === 'available' ? 'bg-success' : 'bg-secondary' %>">
+              <%= snack.status === 'available' ? 'Còn hàng' : 'Hết hàng' %>
+            </span>
+          </td>
+          <td class="d-flex gap-1">
+            <a href="/staff/snacks/<%= snack._id %>/edit" class="btn btn-sm btn-outline-secondary">Sửa</a>
+            <form action="/staff/snacks/<%= snack._id %>/delete" method="POST" onsubmit="return confirm('Xóa món này?')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../../partials/staff-footer') %>
