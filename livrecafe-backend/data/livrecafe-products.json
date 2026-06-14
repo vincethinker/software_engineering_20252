@@ -1,0 +1,35 @@
+{
+  "drinks": [
+    { "drink_name": "Iced Milk Coffee",    "category": "Coffee",   "price": 35000 },
+    { "drink_name": "Black Coffee",         "category": "Coffee",   "price": 25000 },
+    { "drink_name": "Matcha Latte",         "category": "Tea",      "price": 55000 },
+    { "drink_name": "Peach Lemongrass Tea", "category": "Tea",      "price": 45000 },
+    { "drink_name": "Bubble Milk Tea",      "category": "Tea",      "price": 50000 },
+    { "drink_name": "Avocado Smoothie",     "category": "Smoothie", "price": 55000 },
+    { "drink_name": "Iced Chocolate",       "category": "Other",    "price": 50000 },
+    { "drink_name": "Passion Fruit Juice",  "category": "Juice",    "price": 40000 }
+  ],
+  "snacks": [
+    { "snack_name": "Butter Croissant",     "price": 35000 },
+    { "snack_name": "Sandwich",             "price": 45000 },
+    { "snack_name": "Tiramisu",             "price": 65000 },
+    { "snack_name": "Blueberry Cheesecake", "price": 70000 },
+    { "snack_name": "Chocolate Muffin",     "price": 40000 },
+    { "snack_name": "Butter Cookies",       "price": 30000 },
+    { "snack_name": "Creme Caramel",        "price": 35000 },
+    { "snack_name": "Granola Yogurt",       "price": 55000 }
+  ],
+  "books": [
+    { "title": "The Alchemist",                           "author": "Paulo Coelho",              "publisher": "HarperCollins",    "price": 108000 },
+    { "title": "How to Win Friends and Influence People", "author": "Dale Carnegie",             "publisher": "Simon & Schuster", "price": 98000  },
+    { "title": "Atomic Habits",                           "author": "James Clear",               "publisher": "Penguin Random",   "price": 139000 },
+    { "title": "The Little Prince",                       "author": "Antoine de Saint-Exupery", "publisher": "Wordsworth",       "price": 79000  },
+    { "title": "Sapiens",                                 "author": "Yuval Noah Harari",         "publisher": "Harper Perennial", "price": 189000 },
+    { "title": "The Great Gatsby",                        "author": "F. Scott Fitzgerald",       "publisher": "Scribner",         "price": 85000  },
+    { "title": "Think and Grow Rich",                     "author": "Napoleon Hill",             "publisher": "Sound Wisdom",     "price": 119000 },
+    { "title": "Deep Work",                               "author": "Cal Newport",               "publisher": "Grand Central",    "price": 129000 },
+    { "title": "The Psychology of Money",                 "author": "Morgan Housel",             "publisher": "Harriman House",   "price": 145000 },
+    { "title": "Rich Dad Poor Dad",                       "author": "Robert Kiyosaki",           "publisher": "Plata Publishing", "price": 115000 },
+    { "title": "1984",                                    "author": "George Orwell",             "publisher": "Signet Classic",   "price": 95000  }
+  ]
+}
