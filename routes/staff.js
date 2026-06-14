@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const requireStaff = require('../middleware/requireStaff');
 
-// Models
+//Models
 const Book                = require('../models/Book');
 const DrinkProduct        = require('../models/DrinkProduct');
 const SnackProduct        = require('../models/SnackProduct');
@@ -17,6 +17,7 @@ const EventSnackItem      = require('../models/EventSnackItem');
 const Customer            = require('../models/Customer');
 const LoyalMember         = require('../models/LoyalMember');
 
+// Protect all staff routes
 router.use(requireStaff);
 
 //  DASHBOARD
@@ -101,6 +102,7 @@ router.post('/books/:id/delete', async (req, res) => {
 });
 
 //  DRINKS
+
 router.get('/drinks', async (req, res) => {
   try {
     const drinks = await DrinkProduct.find().sort({ drink_name: 1 });
@@ -184,12 +186,55 @@ router.post('/snacks/:id/delete', async (req, res) => {
 });
 
 //  ORDERS
+
 router.get('/orders', async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status && status !== 'all' ? { order_status: status } : {};
     const orders = await CafeOrder.find(filter).sort({ order_date: -1 });
     res.render('staff/orders/list', { orders, currentStatus: status || 'all' });
+  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+});
+
+router.get('/orders/add', async (req, res) => {
+  try {
+    const books  = await Book.find({ status: 'available' }).sort({ title: 1 });
+    const drinks = await DrinkProduct.find({ status: 'available' }).sort({ drink_name: 1 });
+    res.render('staff/orders/order-form', { books, drinks });
+  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+});
+
+router.post('/orders/add', async (req, res) => {
+  try {
+    const { order_type, order_status } = req.body;
+    const bookIds   = [].concat(req.body.book_id  || []);
+    const bookQtys  = [].concat(req.body.book_qty || []);
+    const drinkIds  = [].concat(req.body.drink_id  || []);
+    const drinkQtys = [].concat(req.body.drink_qty || []);
+
+    const order = await CafeOrder.create({ order_type, order_status, total_amount: 0 });
+    let total = 0;
+
+    for (let i = 0; i < bookIds.length; i++) {
+      if (!bookIds[i]) continue;
+      const book = await Book.findById(bookIds[i]);
+      const qty  = parseInt(bookQtys[i]) || 1;
+      if (book) {
+        await BookOrderDetail.create({ order_id: order._id, book_id: book._id, quantity: qty, unit_price: book.price });
+        total += book.price * qty;
+      }
+    }
+    for (let i = 0; i < drinkIds.length; i++) {
+      if (!drinkIds[i]) continue;
+      const drink = await DrinkProduct.findById(drinkIds[i]);
+      const qty   = parseInt(drinkQtys[i]) || 1;
+      if (drink) {
+        await DrinkOrderDetail.create({ order_id: order._id, drink_id: drink._id, quantity: qty, unit_price: drink.price });
+        total += drink.price * qty;
+      }
+    }
+    await CafeOrder.findByIdAndUpdate(order._id, { total_amount: total });
+    res.redirect('/staff/orders');
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
@@ -210,14 +255,31 @@ router.post('/orders/:id/status', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-
 //  BOOKINGs
+
 router.get('/bookings', async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status && status !== 'all' ? { booking_status: status } : {};
     const bookings = await WorkingSpaceBooking.find(filter).sort({ booking_date: 1 });
     res.render('staff/bookings/list', { bookings, currentStatus: status || 'all' });
+  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+});
+
+router.get('/bookings/add', (req, res) => {
+  res.render('staff/bookings/booking-form');
+});
+
+router.post('/bookings/add', async (req, res) => {
+  try {
+    await WorkingSpaceBooking.create({
+      booking_date:     req.body.booking_date,
+      start_time:       req.body.start_time,
+      end_time:         req.body.end_time,
+      number_of_people: req.body.number_of_people,
+      booking_status:   req.body.booking_status
+    });
+    res.redirect('/staff/bookings');
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
@@ -228,14 +290,59 @@ router.post('/bookings/:id/status', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
+//  events
 
-//  EVENTS
 router.get('/events', async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status && status !== 'all' ? { registration_status: status } : {};
     const events = await EventRegistration.find(filter).sort({ event_date: 1 });
     res.render('staff/events/list', { events, currentStatus: status || 'all' });
+  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+});
+
+router.get('/events/add', async (req, res) => {
+  try {
+    const drinks = await DrinkProduct.find({ status: 'available' }).sort({ drink_name: 1 });
+    const snacks = await SnackProduct.find({ status: 'available' }).sort({ snack_name: 1 });
+    res.render('staff/events/event-form', { drinks, snacks });
+  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+});
+
+router.post('/events/add', async (req, res) => {
+  try {
+    const { event_name, event_date, start_time, end_time, participant_count, registration_status } = req.body;
+    const drinkIds  = [].concat(req.body.drink_id  || []);
+    const drinkQtys = [].concat(req.body.drink_qty || []);
+    const snackIds  = [].concat(req.body.snack_id  || []);
+    const snackQtys = [].concat(req.body.snack_qty || []);
+
+    const event = await EventRegistration.create({
+      event_name, event_date, start_time, end_time,
+      participant_count, registration_status, quotation_amount: 0
+    });
+    let total = 0;
+
+    for (let i = 0; i < drinkIds.length; i++) {
+      if (!drinkIds[i]) continue;
+      const drink = await DrinkProduct.findById(drinkIds[i]);
+      const qty   = parseInt(drinkQtys[i]) || 1;
+      if (drink) {
+        await EventDrinkItem.create({ event_registration_id: event._id, drink_id: drink._id, quantity: qty, unit_price: drink.price });
+        total += drink.price * qty;
+      }
+    }
+    for (let i = 0; i < snackIds.length; i++) {
+      if (!snackIds[i]) continue;
+      const snack = await SnackProduct.findById(snackIds[i]);
+      const qty   = parseInt(snackQtys[i]) || 1;
+      if (snack) {
+        await EventSnackItem.create({ event_registration_id: event._id, snack_id: snack._id, quantity: qty, unit_price: snack.price });
+        total += snack.price * qty;
+      }
+    }
+    await EventRegistration.findByIdAndUpdate(event._id, { quotation_amount: total });
+    res.redirect('/staff/events');
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
@@ -268,9 +375,9 @@ router.post('/events/:id/confirm-deposit', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-module.exports = router;
 
-//  CUSTOMERS
+//  customers
+
 router.get('/customers', async (req, res) => {
   try {
     const customers = await Customer.find().sort({ full_name: 1 });
@@ -320,12 +427,12 @@ router.post('/customers/:id/edit', async (req, res) => {
 router.post('/customers/:id/delete', async (req, res) => {
   try {
     await Customer.findByIdAndDelete(req.params.id);
-    await LoyalMember.deleteOne({ customer_id: req.params.id });
+    await LoyalMember.deleteOne({ customer_id: req.params.id }); // cascade
     res.redirect('/staff/customers');
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-
+// register vip
 router.post('/customers/:id/enroll', async (req, res) => {
   try {
     await LoyalMember.create({ customer_id: req.params.id });
@@ -333,6 +440,7 @@ router.post('/customers/:id/enroll', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
+// update tier&points
 router.post('/customers/:id/membership', async (req, res) => {
   try {
     await LoyalMember.findOneAndUpdate(
@@ -342,3 +450,5 @@ router.post('/customers/:id/membership', async (req, res) => {
     res.redirect(`/staff/customers/${req.params.id}`);
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
+
+module.exports = router;

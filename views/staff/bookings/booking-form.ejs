@@ -1,0 +1,45 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/bookings" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0">Tạo đặt chỗ mới</h4>
+</div>
+
+<form action="/staff/bookings/add" method="POST" class="card p-4" style="max-width:560px">
+
+  <div class="mb-3">
+    <label class="form-label">Ngày đặt <span class="text-danger">*</span></label>
+    <input type="date" name="booking_date" class="form-control" required>
+  </div>
+
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label">Giờ bắt đầu <span class="text-danger">*</span></label>
+      <input type="time" name="start_time" class="form-control" required>
+    </div>
+    <div class="col mb-3">
+      <label class="form-label">Giờ kết thúc <span class="text-danger">*</span></label>
+      <input type="time" name="end_time" class="form-control" required>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Số người <span class="text-danger">*</span></label>
+    <input type="number" name="number_of_people" class="form-control" required min="1" value="1">
+  </div>
+
+  <div class="mb-4">
+    <label class="form-label">Trạng thái</label>
+    <select name="booking_status" class="form-select">
+      <option value="pending">Chờ xác nhận</option>
+      <option value="confirmed">Đã xác nhận</option>
+    </select>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">Tạo đặt chỗ</button>
+    <a href="/staff/bookings" class="btn btn-outline-secondary">Hủy</a>
+  </div>
+</form>
+
+<%- include('../../partials/staff-footer') %>

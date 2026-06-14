@@ -1,0 +1,103 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/events" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0">Tạo sự kiện mới</h4>
+</div>
+
+<form action="/staff/events/add" method="POST" class="card p-4" style="max-width:760px">
+
+  <%# ── Event meta ── %>
+  <div class="mb-3">
+    <label class="form-label">Tên sự kiện <span class="text-danger">*</span></label>
+    <input type="text" name="event_name" class="form-control" required>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-3">
+      <label class="form-label">Ngày <span class="text-danger">*</span></label>
+      <input type="date" name="event_date" class="form-control" required>
+    </div>
+    <div class="col-md-4 mb-3">
+      <label class="form-label">Giờ bắt đầu <span class="text-danger">*</span></label>
+      <input type="time" name="start_time" class="form-control" required>
+    </div>
+    <div class="col-md-4 mb-3">
+      <label class="form-label">Giờ kết thúc <span class="text-danger">*</span></label>
+      <input type="time" name="end_time" class="form-control" required>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Số người tham gia <span class="text-danger">*</span></label>
+      <input type="number" name="participant_count" class="form-control" required min="1" value="1">
+    </div>
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Trạng thái</label>
+      <select name="registration_status" class="form-select">
+        <option value="pending">Chờ xử lý</option>
+        <option value="confirmed">Đã xác nhận</option>
+      </select>
+    </div>
+  </div>
+
+  <%# ── Drink line items ── %>
+  <h6 style="color:var(--brown)">Đồ uống</h6>
+  <table class="table table-sm align-middle" id="drink-table">
+    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('drink')">+ Thêm đồ uống</button>
+
+  <%# ── Snack line items ── %>
+  <h6 style="color:var(--brown)">Đồ ăn nhẹ</h6>
+  <table class="table table-sm align-middle" id="snack-table">
+    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('snack')">+ Thêm đồ ăn nhẹ</button>
+
+  <p class="text-muted small mb-3">Báo giá sẽ được tính tự động từ các sản phẩm đã chọn.</p>
+
+  <div class="d-flex gap-2 border-top pt-3">
+    <button type="submit" class="btn btn-primary">Tạo sự kiện</button>
+    <a href="/staff/events" class="btn btn-outline-secondary">Hủy</a>
+  </div>
+</form>
+
+<script>
+  const DRINKS = [
+    <% drinks.forEach(d => { %>
+      { id: "<%= d._id %>", name: "<%= d.drink_name %>", price: <%= d.price %> },
+    <% }) %>
+  ];
+  const SNACKS = [
+    <% snacks.forEach(s => { %>
+      { id: "<%= s._id %>", name: "<%= s.snack_name %>", price: <%= s.price %> },
+    <% }) %>
+  ];
+
+  function addRow(type) {
+    const data = type === 'drink' ? DRINKS : SNACKS;
+    const tbody = document.querySelector(`#${type}-table tbody`);
+    const tr = document.createElement('tr');
+
+    let options = '<option value="">— Chọn —</option>';
+    data.forEach(p => {
+      options += `<option value="${p.id}">${p.name} (${p.price.toLocaleString('vi-VN')}đ)</option>`;
+    });
+
+    tr.innerHTML = `
+      <td><select name="${type}_id" class="form-select form-select-sm">${options}</select></td>
+      <td><input type="number" name="${type}_qty" class="form-control form-control-sm" value="1" min="1" style="width:90px"></td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  addRow('drink');
+  addRow('snack');
+</script>
+
+<%- include('../../partials/staff-footer') %>

@@ -1,0 +1,89 @@
+<%- include('../../partials/staff-header') %>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/staff/orders" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
+  <h4 class="mb-0">Tạo đơn hàng mới</h4>
+</div>
+
+<form action="/staff/orders/add" method="POST" class="card p-4" style="max-width:760px">
+
+  <%# ── Order meta ── %>
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Loại đơn</label>
+      <select name="order_type" class="form-select">
+        <option value="dine-in">Tại chỗ</option>
+        <option value="takeaway">Mang về</option>
+        <option value="delivery">Giao hàng</option>
+      </select>
+    </div>
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Trạng thái</label>
+      <select name="order_status" class="form-select">
+        <option value="pending">Chờ xử lý</option>
+        <option value="preparing">Đang chuẩn bị</option>
+        <option value="ready">Sẵn sàng</option>
+        <option value="completed">Hoàn thành</option>
+      </select>
+    </div>
+  </div>
+
+  <%# ── Drink line items ── %>
+  <h6 style="color:var(--brown)">Đồ uống</h6>
+  <table class="table table-sm align-middle" id="drink-table">
+    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('drink')">+ Thêm đồ uống</button>
+
+  <%# ── Book line items ── %>
+  <h6 style="color:var(--brown)">Sách</h6>
+  <table class="table table-sm align-middle" id="book-table">
+    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('book')">+ Thêm sách</button>
+
+  <div class="d-flex gap-2 border-top pt-3">
+    <button type="submit" class="btn btn-primary">Tạo đơn hàng</button>
+    <a href="/staff/orders" class="btn btn-outline-secondary">Hủy</a>
+  </div>
+</form>
+
+<%# ── Product option data for JS ── %>
+<script>
+  const DRINKS = [
+    <% drinks.forEach(d => { %>
+      { id: "<%= d._id %>", name: "<%= d.drink_name %>", price: <%= d.price %> },
+    <% }) %>
+  ];
+  const BOOKS = [
+    <% books.forEach(b => { %>
+      { id: "<%= b._id %>", name: "<%= b.title.replace(/"/g, '&quot;') %>", price: <%= b.price %> },
+    <% }) %>
+  ];
+
+  function addRow(type) {
+    const data = type === 'drink' ? DRINKS : BOOKS;
+    const tbody = document.querySelector(`#${type}-table tbody`);
+    const tr = document.createElement('tr');
+
+    let options = '<option value="">— Chọn —</option>';
+    data.forEach(p => {
+      options += `<option value="${p.id}">${p.name} (${p.price.toLocaleString('vi-VN')}đ)</option>`;
+    });
+
+    tr.innerHTML = `
+      <td><select name="${type}_id" class="form-select form-select-sm">${options}</select></td>
+      <td><input type="number" name="${type}_qty" class="form-control form-control-sm" value="1" min="1" style="width:90px"></td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // start each table with one empty row
+  addRow('drink');
+  addRow('book');
+</script>
+
+<%- include('../../partials/staff-footer') %>
