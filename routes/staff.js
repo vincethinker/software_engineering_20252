@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const requireStaff = require('../middleware/requireStaff');
 
-// ── Models ─────────────────────────────────────────────────────────────────
+// Models
 const Book                = require('../models/Book');
 const DrinkProduct        = require('../models/DrinkProduct');
 const SnackProduct        = require('../models/SnackProduct');
@@ -17,12 +17,9 @@ const EventSnackItem      = require('../models/EventSnackItem');
 const Customer            = require('../models/Customer');
 const LoyalMember         = require('../models/LoyalMember');
 
-// Protect all staff routes
 router.use(requireStaff);
 
-// ══════════════════════════════════════════════════════════════════════════
 //  DASHBOARD
-// ══════════════════════════════════════════════════════════════════════════
 
 router.get('/', async (req, res) => {
   try {
@@ -61,9 +58,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
 //  BOOKS
-// ══════════════════════════════════════════════════════════════════════════
 
 router.get('/books', async (req, res) => {
   try {
@@ -105,10 +100,7 @@ router.post('/books/:id/delete', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
 //  DRINKS
-// ══════════════════════════════════════════════════════════════════════════
-
 router.get('/drinks', async (req, res) => {
   try {
     const drinks = await DrinkProduct.find().sort({ drink_name: 1 });
@@ -149,9 +141,7 @@ router.post('/drinks/:id/delete', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
 //  SNACKS
-// ══════════════════════════════════════════════════════════════════════════
 
 router.get('/snacks', async (req, res) => {
   try {
@@ -193,10 +183,7 @@ router.post('/snacks/:id/delete', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
 //  ORDERS
-// ══════════════════════════════════════════════════════════════════════════
-
 router.get('/orders', async (req, res) => {
   try {
     const { status } = req.query;
@@ -223,10 +210,8 @@ router.post('/orders/:id/status', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-//  BOOKINGS
-// ══════════════════════════════════════════════════════════════════════════
 
+//  BOOKINGs
 router.get('/bookings', async (req, res) => {
   try {
     const { status } = req.query;
@@ -243,10 +228,8 @@ router.post('/bookings/:id/status', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-//  EVENTS
-// ══════════════════════════════════════════════════════════════════════════
 
+//  EVENTS
 router.get('/events', async (req, res) => {
   try {
     const { status } = req.query;
@@ -287,15 +270,12 @@ router.post('/events/:id/confirm-deposit', async (req, res) => {
 
 module.exports = router;
 
-// ══════════════════════════════════════════════════════════════════════════
 //  CUSTOMERS
-// ══════════════════════════════════════════════════════════════════════════
-
 router.get('/customers', async (req, res) => {
   try {
     const customers = await Customer.find().sort({ full_name: 1 });
     const members   = await LoyalMember.find();
-    // build a quick lookup map: customer_id string → member doc
+
     const memberMap = {};
     members.forEach(m => { memberMap[m.customer_id.toString()] = m; });
     res.render('staff/customers/list', { customers, memberMap });
@@ -340,12 +320,12 @@ router.post('/customers/:id/edit', async (req, res) => {
 router.post('/customers/:id/delete', async (req, res) => {
   try {
     await Customer.findByIdAndDelete(req.params.id);
-    await LoyalMember.deleteOne({ customer_id: req.params.id }); // cascade
+    await LoyalMember.deleteOne({ customer_id: req.params.id });
     res.redirect('/staff/customers');
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// Enroll a customer as a loyalty member
+
 router.post('/customers/:id/enroll', async (req, res) => {
   try {
     await LoyalMember.create({ customer_id: req.params.id });
@@ -353,7 +333,6 @@ router.post('/customers/:id/enroll', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-// Update an existing member's tier and points
 router.post('/customers/:id/membership', async (req, res) => {
   try {
     await LoyalMember.findOneAndUpdate(
