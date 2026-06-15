@@ -1,6 +1,6 @@
 <%- include('../../partials/staff-header') %>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0">Đồ ăn</h4>
   <a href="/staff/snacks/add" class="btn btn-primary btn-sm">+ Thêm món</a>
 </div>
@@ -9,25 +9,47 @@
   <table class="table table-hover mb-0">
     <thead class="table-dark">
       <tr>
-        <th>Tên</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th>Thao tác</th>
+        <th>Ảnh</th>
+        <th>Tên</th>
+        <th>Giá</th>
+        <th>Tồn kho</th>
+        <th>Trạng thái</th>
+        <th>Thao tác</th>
       </tr>
     </thead>
+
     <tbody>
       <% if (snacks.length === 0) { %>
-        <tr><td colspan="5" class="text-center text-muted py-4">Chưa có món nào.</td></tr>
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">Chưa có món nào.</td>
+        </tr>
       <% } %>
+
       <% snacks.forEach(snack => { %>
         <tr>
-          <td><%= snack.snack_name %></td>
-          <td><%= Number(snack.price).toLocaleString('vi-VN') %>đ</td>
-          <td><%= snack.quantity ?? '—' %></td>
           <td>
-            <span class="badge <%= snack.status === 'available' ? 'bg-success' : 'bg-secondary' %>">
-              <%= snack.status === 'available' ? 'Còn hàng' : 'Hết hàng' %>
-            </span>
+            <% if (snack.imageUrl) { %>
+              <img class="staff-product-thumb" src="http://localhost:3000<%= snack.imageUrl %>" alt="<%= snack.name %>">
+            <% } else { %>
+              <span class="text-muted small">Không có ảnh</span>
+            <% } %>
           </td>
+
+          <td><strong><%= snack.name %></strong></td>
+          <td><%= Number(snack.price || 0).toLocaleString('vi-VN') %>đ</td>
+          <td><%= snack.stock || 0 %></td>
+
+          <td>
+            <% if (snack.status === 'out_of_stock' || Number(snack.stock || 0) <= 0) { %>
+              <span class="badge bg-danger">Hết hàng</span>
+            <% } else { %>
+              <span class="badge bg-success">Còn hàng</span>
+            <% } %>
+          </td>
+
           <td class="d-flex gap-1">
             <a href="/staff/snacks/<%= snack._id %>/edit" class="btn btn-sm btn-outline-secondary">Sửa</a>
+
             <form action="/staff/snacks/<%= snack._id %>/delete" method="POST" onsubmit="return confirm('Xóa món này?')">
               <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
             </form>

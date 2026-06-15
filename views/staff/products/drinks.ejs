@@ -1,6 +1,6 @@
 <%- include('../../partials/staff-header') %>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0">Đồ uống</h4>
   <a href="/staff/drinks/add" class="btn btn-primary btn-sm">+ Thêm đồ uống</a>
 </div>
@@ -9,26 +9,49 @@
   <table class="table table-hover mb-0">
     <thead class="table-dark">
       <tr>
-        <th>Tên</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th>Thao tác</th>
+        <th>Ảnh</th>
+        <th>Tên</th>
+        <th>Danh mục</th>
+        <th>Giá</th>
+        <th>Tồn kho</th>
+        <th>Trạng thái</th>
+        <th>Thao tác</th>
       </tr>
     </thead>
+
     <tbody>
       <% if (drinks.length === 0) { %>
-        <tr><td colspan="6" class="text-center text-muted py-4">Chưa có đồ uống nào.</td></tr>
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">Chưa có đồ uống nào.</td>
+        </tr>
       <% } %>
+
       <% drinks.forEach(drink => { %>
         <tr>
-          <td><%= drink.drink_name %></td>
-          <td><%= drink.category || '—' %></td>
-          <td><%= Number(drink.price).toLocaleString('vi-VN') %>đ</td>
-          <td><%= drink.quantity ?? '—' %></td>
           <td>
-            <span class="badge <%= drink.status === 'available' ? 'bg-success' : 'bg-secondary' %>">
-              <%= drink.status === 'available' ? 'Còn hàng' : 'Hết hàng' %>
-            </span>
+            <% if (drink.imageUrl) { %>
+              <img class="staff-product-thumb" src="http://localhost:3000<%= drink.imageUrl %>" alt="<%= drink.name %>">
+            <% } else { %>
+              <span class="text-muted small">Không có ảnh</span>
+            <% } %>
           </td>
+
+          <td><strong><%= drink.name %></strong></td>
+          <td><%= drink.category || '—' %></td>
+          <td><%= Number(drink.price || 0).toLocaleString('vi-VN') %>đ</td>
+          <td><%= drink.stock || 0 %></td>
+
+          <td>
+            <% if (drink.status === 'out_of_stock' || Number(drink.stock || 0) <= 0) { %>
+              <span class="badge bg-danger">Hết hàng</span>
+            <% } else { %>
+              <span class="badge bg-success">Còn hàng</span>
+            <% } %>
+          </td>
+
           <td class="d-flex gap-1">
             <a href="/staff/drinks/<%= drink._id %>/edit" class="btn btn-sm btn-outline-secondary">Sửa</a>
+
             <form action="/staff/drinks/<%= drink._id %>/delete" method="POST" onsubmit="return confirm('Xóa đồ uống này?')">
               <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
             </form>

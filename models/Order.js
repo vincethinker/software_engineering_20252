@@ -100,6 +100,16 @@ const orderSchema = new mongoose.Schema(
       default: false
     },
 
+    loyaltyPointsAwarded: {
+  type: Boolean,
+  default: false
+    },
+
+    earnedPoints: {
+  type: Number,
+  default: 0
+    },
+
     note: {
       type: String,
       default: ""

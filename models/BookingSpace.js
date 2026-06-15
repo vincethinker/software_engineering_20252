@@ -117,6 +117,28 @@ const bookingSpaceSchema = new mongoose.Schema(
       default: false
     },
 
+    customerId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null
+    },
+
+    paymentStatus: {
+  type: String,
+  enum: ["unpaid", "paid"],
+  default: "unpaid"
+    },
+
+    loyaltyPointsAwarded: {
+  type: Boolean,
+  default: false
+    },
+
+    earnedPoints: {
+  type: Number,
+  default: 0
+    },
+
     note: {
       type: String,
       default: ""

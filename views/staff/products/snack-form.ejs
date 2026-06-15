@@ -2,37 +2,51 @@
 
 <div class="d-flex align-items-center gap-3 mb-4">
   <a href="/staff/snacks" class="btn btn-sm btn-outline-secondary">← Quay lại</a>
-  <h4 class="mb-0"><%= snack ? 'Chỉnh sửa món' : 'Thêm món' %></h4>
+  <h4 class="mb-0"><%= product ? 'Sửa món' : 'Thêm món' %></h4>
 </div>
 
-<div class="card p-4" style="max-width:600px">
-  <form action="<%= action %>" method="POST">
-    <div class="mb-3">
-      <label class="form-label">Tên <span class="text-danger">*</span></label>
-      <input type="text" name="snack_name" class="form-control" required value="<%= snack ? snack.snack_name : '' %>">
-    </div>
-    <div class="row">
-      <div class="col mb-3">
-        <label class="form-label">Giá (VND) <span class="text-danger">*</span></label>
-        <input type="number" name="price" class="form-control" step="0.01" required min="0" value="<%= snack ? snack.price : '' %>">
+<form action="<%= action %>" method="POST" enctype="multipart/form-data" class="card p-4" style="max-width:760px">
+  <div class="mb-3">
+    <label class="form-label">Tên <span class="text-danger">*</span></label>
+    <input name="name" class="form-control" required value="<%= product ? product.name : '' %>">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Ảnh sản phẩm</label>
+    <input type="file" name="image" accept="image/*" class="form-control">
+
+    <% if (product && product.imageUrl) { %>
+      <div class="mt-2">
+        <img class="staff-form-preview" src="http://localhost:3000<%= product.imageUrl %>" alt="<%= product.name %>">
       </div>
-      <div class="col mb-3">
-        <label class="form-label">Số lượng tồn kho</label>
-        <input type="number" name="quantity" class="form-control" min="0" value="<%= snack ? snack.quantity : '' %>">
-      </div>
+    <% } %>
+  </div>
+
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label">Giá (VND) <span class="text-danger">*</span></label>
+      <input type="number" name="price" class="form-control" required min="0" value="<%= product ? product.price : '' %>">
     </div>
-    <div class="mb-4">
-      <label class="form-label">Trạng thái</label>
-      <select name="status" class="form-select">
-        <option value="available"   <%= snack && snack.status === 'available'   ? 'selected' : '' %>>Còn hàng</option>
-        <option value="unavailable" <%= snack && snack.status === 'unavailable' ? 'selected' : '' %>>Hết hàng</option>
-      </select>
+
+    <div class="col mb-3">
+      <label class="form-label">Số lượng tồn kho</label>
+      <input type="number" name="stock" class="form-control" min="0" value="<%= product ? product.stock : 0 %>">
     </div>
-    <div class="d-flex gap-2">
-      <button type="submit" class="btn btn-primary"><%= snack ? 'Lưu thay đổi' : 'Thêm món' %></button>
-      <a href="/staff/snacks" class="btn btn-outline-secondary">Hủy</a>
-    </div>
-  </form>
-</div>
+  </div>
+
+  <div class="mb-4">
+    <label class="form-label">Trạng thái</label>
+    <select name="status" class="form-select">
+      <option value="available" <%= product && product.status === 'available' ? 'selected' : '' %>>Còn hàng</option>
+      <option value="out_of_stock" <%= product && product.status === 'out_of_stock' ? 'selected' : '' %>>Hết hàng</option>
+      <option value="hidden" <%= product && product.status === 'hidden' ? 'selected' : '' %>>Ẩn</option>
+    </select>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary"><%= product ? 'Lưu thay đổi' : 'Thêm món' %></button>
+    <a href="/staff/snacks" class="btn btn-outline-secondary">Hủy</a>
+  </div>
+</form>
 
 <%- include('../../partials/staff-footer') %>

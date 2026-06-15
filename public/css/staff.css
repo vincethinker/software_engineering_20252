@@ -223,3 +223,20 @@ body {
   color: white;
   border-color: var(--brown);
 }
+
+.staff-product-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ead1bd;
+  background: #fff;
+}
+
+.staff-form-preview {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #ead1bd;
+}

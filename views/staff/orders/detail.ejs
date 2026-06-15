@@ -58,8 +58,10 @@ const badge = badgeMap[order.status] || 'bg-secondary';
     </div>
 
     <div class="col-6">
-      <div class="text-muted small">Số điện thoại</div>
+      <div class="text-muted small">Số điện thoại - Loại khách</div>
       <%= order.phone || '—' %>
+      -
+      <%= order.customerType === 'loyal' ? 'KHTT' : 'Thường' %>
     </div>
 
     <div class="col-6">

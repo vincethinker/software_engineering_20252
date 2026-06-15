@@ -1,9 +1,9 @@
-const Order = require("../models/Order");
-const Product = require("../models/Product");
-const BookingSpace = require("../models/BookingSpace");
 const express = require('express');
 const router  = express.Router();
 const requireStaff = require('../middleware/requireStaff');
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
 
 //Models
 const Book                = require('../models/Book');
@@ -19,6 +19,149 @@ const EventDrinkItem      = require('../models/EventDrinkItem');
 const EventSnackItem      = require('../models/EventSnackItem');
 const Customer            = require('../models/Customer');
 const LoyalMember         = require('../models/LoyalMember');
+const Order               = require("../models/Order");
+const Product             = require("../models/Product");
+const BookingSpace        = require("../models/BookingSpace");
+const User                = require("../models/User");
+
+function getProductTypeFromUrl(req) {
+  if (req.originalUrl.includes("/books")) return "book";
+  if (req.originalUrl.includes("/drinks")) return "drink";
+  if (req.originalUrl.includes("/snacks")) return "snack";
+  return "drink";
+}
+
+function getImageFolderByType(type) {
+  if (type === "book") return "Books";
+  if (type === "snack") return "Snacks";
+  return "Drinks";
+}
+
+function makeSlug(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
+function normalizeProductStatus(status, stock) {
+  const numericStock = Number(stock) || 0;
+
+  if (status === "hidden") return "hidden";
+  if (status === "out_of_stock" || status === "unavailable") return "out_of_stock";
+  if (numericStock <= 0) return "out_of_stock";
+
+  return "available";
+}
+
+const productImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const type = getProductTypeFromUrl(req);
+    const folder = getImageFolderByType(type);
+
+    const backendDir = process.env.CUSTOMER_BACKEND_DIR;
+
+    if (!backendDir) {
+      return cb(new Error("Thiếu CUSTOMER_BACKEND_DIR trong .env"));
+    }
+
+    const uploadDir = path.join(backendDir, "data", "image", folder);
+
+    fs.mkdirSync(uploadDir, { recursive: true });
+
+    cb(null, uploadDir);
+  },
+
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, ext);
+
+    const safeName = makeSlug(baseName) || "product";
+    const uniqueName = `${Date.now()}-${safeName}${ext}`;
+
+    cb(null, uniqueName);
+  }
+});
+
+const uploadProductImage = multer({
+  storage: productImageStorage,
+  fileFilter: function (req, file, cb) {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Chỉ được upload file ảnh"));
+    }
+
+    cb(null, true);
+  }
+});
+
+function getProductImageUrl(req) {
+  if (!req.file) return "";
+
+  const type = getProductTypeFromUrl(req);
+  const folder = getImageFolderByType(type);
+
+  return `/images/${folder}/${req.file.filename}`;
+};
+
+function calculateEarnedPoints(amount) {
+  return Math.floor(Number(amount || 0) / 10000);
+}
+
+function calculateMembershipLevel(points) {
+  const totalPoints = Number(points || 0);
+
+  if (totalPoints >= 600) return "Kim cương";
+  if (totalPoints >= 300) return "Vàng";
+  if (totalPoints >= 100) return "Bạc";
+
+  return "Đồng";
+}
+
+async function addLoyaltyPointsToUser(user, amount) {
+  if (!user) return null;
+
+  const earnedPoints = calculateEarnedPoints(amount);
+
+  if (earnedPoints <= 0) return null;
+
+  const newPoints = Number(user.points || 0) + earnedPoints;
+  const newMembershipLevel = calculateMembershipLevel(newPoints);
+
+  user.points = newPoints;
+  user.membershipLevel = newMembershipLevel;
+  user.isLoyalMember = true;
+
+  await user.save();
+
+  return {
+    userId: user._id,
+    earnedPoints,
+    points: user.points,
+    membershipLevel: user.membershipLevel
+  };
+}
+
+async function findUserForBooking(booking) {
+  if (booking.customerId) {
+    const userById = await User.findById(booking.customerId);
+
+    if (userById) return userById;
+  }
+
+  if (booking.phone) {
+    const userByPhone = await User.findOne({
+      phone: booking.phone,
+      role: "customer"
+    });
+
+    if (userByPhone) return userByPhone;
+  }
+
+  return null;
+}
 
 // Protect all staff routes
 router.use(requireStaff);
@@ -62,130 +205,338 @@ router.get('/', async (req, res) => {
   }
 });
 
-//  BOOKS
+// PRODUCTS - synced with customer backend collection "products"
 
-router.get('/books', async (req, res) => {
+// BOOKS
+
+router.get("/books", async (req, res) => {
   try {
-    const books = await Book.find().sort({ title: 1 });
-    res.render('staff/products/books', { books });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const books = await Product.find({
+      type: "book",
+      isActive: true,
+      status: { $ne: "hidden" }
+    }).sort({ name: 1 });
+
+    res.render("staff/products/books", { books });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/books/add', (req, res) => {
-  res.render('staff/products/book-form', { book: null, action: '/staff/books/add' });
+router.get("/books/add", (req, res) => {
+  res.render("staff/products/book-form", {
+    product: null,
+    action: "/staff/books/add"
+  });
 });
 
-router.post('/books/add', async (req, res) => {
+router.post("/books/add", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await Book.create(req.body);
-    res.redirect('/staff/books');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, author, publisher, price, stock, status } = req.body;
+
+    const imageUrl = getProductImageUrl(req);
+    const finalStatus = normalizeProductStatus(status, stock);
+
+    await Product.create({
+      name,
+      slug: makeSlug(name),
+      type: "book",
+      category: "Book",
+      price: Number(price) || 0,
+      imageUrl,
+      description: "",
+      stock: Number(stock) || 0,
+      status: finalStatus,
+      isBestSeller: false,
+      isActive: true,
+      author: author || "",
+      publisher: publisher || "",
+      canReadAtCafe: false,
+      canBuy: true
+    });
+
+    res.redirect("/staff/books");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/books/:id/edit', async (req, res) => {
+router.get("/books/:id/edit", async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id);
-    if (!book) return res.status(404).send('Book not found');
-    res.render('staff/products/book-form', { book, action: `/staff/books/${book._id}/edit` });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const product = await Product.findById(req.params.id);
+
+    if (!product) return res.status(404).send("Book not found");
+
+    res.render("staff/products/book-form", {
+      product,
+      action: `/staff/books/${product._id}/edit`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/books/:id/edit', async (req, res) => {
+router.post("/books/:id/edit", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await Book.findByIdAndUpdate(req.params.id, req.body);
-    res.redirect('/staff/books');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, author, publisher, price, stock, status } = req.body;
+
+    const updateData = {
+      name,
+      slug: makeSlug(name),
+      category: "Book",
+      price: Number(price) || 0,
+      stock: Number(stock) || 0,
+      status: normalizeProductStatus(status, stock),
+      author: author || "",
+      publisher: publisher || ""
+    };
+
+    const imageUrl = getProductImageUrl(req);
+
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
+    await Product.findByIdAndUpdate(req.params.id, updateData);
+
+    res.redirect("/staff/books");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/books/:id/delete', async (req, res) => {
+router.post("/books/:id/delete", async (req, res) => {
   try {
-    await Book.findByIdAndDelete(req.params.id);
-    res.redirect('/staff/books');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    await Product.findByIdAndDelete(req.params.id);
+    res.redirect("/staff/books");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-//  DRINKS
+// DRINKS
 
-router.get('/drinks', async (req, res) => {
+router.get("/drinks", async (req, res) => {
   try {
-    const drinks = await DrinkProduct.find().sort({ drink_name: 1 });
-    res.render('staff/products/drinks', { drinks });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const drinks = await Product.find({
+      type: "drink",
+      isActive: true,
+      status: { $ne: "hidden" }
+    }).sort({ name: 1 });
+
+    res.render("staff/products/drinks", { drinks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/drinks/add', (req, res) => {
-  res.render('staff/products/drink-form', { drink: null, action: '/staff/drinks/add' });
+router.get("/drinks/add", (req, res) => {
+  res.render("staff/products/drink-form", {
+    product: null,
+    action: "/staff/drinks/add"
+  });
 });
 
-router.post('/drinks/add', async (req, res) => {
+router.post("/drinks/add", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await DrinkProduct.create(req.body);
-    res.redirect('/staff/drinks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, category, price, stock, status } = req.body;
+
+    const imageUrl = getProductImageUrl(req);
+    const finalStatus = normalizeProductStatus(status, stock);
+
+    await Product.create({
+      name,
+      slug: makeSlug(name),
+      type: "drink",
+      category: category || "Drink",
+      price: Number(price) || 0,
+      imageUrl,
+      description: "",
+      stock: Number(stock) || 0,
+      status: finalStatus,
+      isBestSeller: false,
+      isActive: true,
+      author: "",
+      publisher: "",
+      canReadAtCafe: false,
+      canBuy: true
+    });
+
+    res.redirect("/staff/drinks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/drinks/:id/edit', async (req, res) => {
+router.get("/drinks/:id/edit", async (req, res) => {
   try {
-    const drink = await DrinkProduct.findById(req.params.id);
-    if (!drink) return res.status(404).send('Drink not found');
-    res.render('staff/products/drink-form', { drink, action: `/staff/drinks/${drink._id}/edit` });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const product = await Product.findById(req.params.id);
+
+    if (!product) return res.status(404).send("Drink not found");
+
+    res.render("staff/products/drink-form", {
+      product,
+      action: `/staff/drinks/${product._id}/edit`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/drinks/:id/edit', async (req, res) => {
+router.post("/drinks/:id/edit", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await DrinkProduct.findByIdAndUpdate(req.params.id, req.body);
-    res.redirect('/staff/drinks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, category, price, stock, status } = req.body;
+
+    const updateData = {
+      name,
+      slug: makeSlug(name),
+      category: category || "Drink",
+      price: Number(price) || 0,
+      stock: Number(stock) || 0,
+      status: normalizeProductStatus(status, stock)
+    };
+
+    const imageUrl = getProductImageUrl(req);
+
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
+    await Product.findByIdAndUpdate(req.params.id, updateData);
+
+    res.redirect("/staff/drinks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/drinks/:id/delete', async (req, res) => {
+router.post("/drinks/:id/delete", async (req, res) => {
   try {
-    await DrinkProduct.findByIdAndDelete(req.params.id);
-    res.redirect('/staff/drinks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    await Product.findByIdAndDelete(req.params.id);
+    res.redirect("/staff/drinks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-//  SNACKS
+// SNACKS
 
-router.get('/snacks', async (req, res) => {
+router.get("/snacks", async (req, res) => {
   try {
-    const snacks = await SnackProduct.find().sort({ snack_name: 1 });
-    res.render('staff/products/snacks', { snacks });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const snacks = await Product.find({
+      type: "snack",
+      isActive: true,
+      status: { $ne: "hidden" }
+    }).sort({ name: 1 });
+
+    res.render("staff/products/snacks", { snacks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/snacks/add', (req, res) => {
-  res.render('staff/products/snack-form', { snack: null, action: '/staff/snacks/add' });
+router.get("/snacks/add", (req, res) => {
+  res.render("staff/products/snack-form", {
+    product: null,
+    action: "/staff/snacks/add"
+  });
 });
 
-router.post('/snacks/add', async (req, res) => {
+router.post("/snacks/add", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await SnackProduct.create(req.body);
-    res.redirect('/staff/snacks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, price, stock, status } = req.body;
+
+    const imageUrl = getProductImageUrl(req);
+    const finalStatus = normalizeProductStatus(status, stock);
+
+    await Product.create({
+      name,
+      slug: makeSlug(name),
+      type: "snack",
+      category: "Snack",
+      price: Number(price) || 0,
+      imageUrl,
+      description: "",
+      stock: Number(stock) || 0,
+      status: finalStatus,
+      isBestSeller: false,
+      isActive: true,
+      author: "",
+      publisher: "",
+      canReadAtCafe: false,
+      canBuy: true
+    });
+
+    res.redirect("/staff/snacks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/snacks/:id/edit', async (req, res) => {
+router.get("/snacks/:id/edit", async (req, res) => {
   try {
-    const snack = await SnackProduct.findById(req.params.id);
-    if (!snack) return res.status(404).send('Snack not found');
-    res.render('staff/products/snack-form', { snack, action: `/staff/snacks/${snack._id}/edit` });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const product = await Product.findById(req.params.id);
+
+    if (!product) return res.status(404).send("Snack not found");
+
+    res.render("staff/products/snack-form", {
+      product,
+      action: `/staff/snacks/${product._id}/edit`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/snacks/:id/edit', async (req, res) => {
+router.post("/snacks/:id/edit", uploadProductImage.single("image"), async (req, res) => {
   try {
-    await SnackProduct.findByIdAndUpdate(req.params.id, req.body);
-    res.redirect('/staff/snacks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const { name, price, stock, status } = req.body;
+
+    const updateData = {
+      name,
+      slug: makeSlug(name),
+      category: "Snack",
+      price: Number(price) || 0,
+      stock: Number(stock) || 0,
+      status: normalizeProductStatus(status, stock)
+    };
+
+    const imageUrl = getProductImageUrl(req);
+
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
+    await Product.findByIdAndUpdate(req.params.id, updateData);
+
+    res.redirect("/staff/snacks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/snacks/:id/delete', async (req, res) => {
+router.post("/snacks/:id/delete", async (req, res) => {
   try {
-    await SnackProduct.findByIdAndDelete(req.params.id);
-    res.redirect('/staff/snacks');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    await Product.findByIdAndDelete(req.params.id);
+    res.redirect("/staff/snacks");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
 //  ORDERS - synced with customer backend collection "orders"
@@ -276,6 +627,7 @@ router.post("/orders/add", async (req, res) => {
       phone: phone || "Không có",
       email: email || "",
       items,
+      customerType: "regular",
       totalAmount,
       orderType: orderType || "takeaway",
       paymentMethod: paymentMethod || "cash",
@@ -316,10 +668,45 @@ router.get("/orders/:id", async (req, res) => {
 
 router.post("/orders/:id/status", async (req, res) => {
   try {
-    await Order.findByIdAndUpdate(req.params.id, {
-      status: req.body.status,
+    const newStatus = req.body.status;
+
+    const oldOrder = await Order.findById(req.params.id);
+
+    if (!oldOrder) {
+      return res.status(404).send("Order not found");
+    }
+
+    const updateData = {
+      status: newStatus,
       isSeenByStaff: true
-    });
+    };
+
+    if (newStatus === "completed") {
+      updateData.paymentStatus = "paid";
+    }
+
+    if (
+      newStatus === "completed" &&
+      oldOrder.status !== "completed" &&
+      oldOrder.loyaltyPointsAwarded !== true &&
+      oldOrder.customerId
+    ) {
+      const user = await User.findById(oldOrder.customerId);
+
+      if (user) {
+        const loyaltyResult = await addLoyaltyPointsToUser(
+          user,
+          oldOrder.totalAmount
+        );
+
+        if (loyaltyResult) {
+          updateData.loyaltyPointsAwarded = true;
+          updateData.earnedPoints = loyaltyResult.earnedPoints;
+        }
+      }
+    }
+
+    await Order.findByIdAndUpdate(req.params.id, updateData);
 
     res.redirect("/staff/orders");
   } catch (err) {
@@ -402,10 +789,46 @@ router.post("/bookings/add", async (req, res) => {
 
 router.post("/bookings/:id/status", async (req, res) => {
   try {
-    await BookingSpace.findByIdAndUpdate(req.params.id, {
-      status: req.body.status,
+    const newStatus = req.body.status;
+
+    const oldBooking = await BookingSpace.findById(req.params.id);
+
+    if (!oldBooking) {
+      return res.status(404).send("Booking not found");
+    }
+
+    const updateData = {
+      status: newStatus,
       isSeenByStaff: true
-    });
+    };
+
+    if (newStatus === "confirmed") {
+      updateData.paymentStatus = "paid";
+    }
+
+    if (
+      newStatus === "confirmed" &&
+      oldBooking.status !== "confirmed" &&
+      oldBooking.loyaltyPointsAwarded !== true
+    ) {
+      const user = await findUserForBooking(oldBooking);
+
+      if (user) {
+        const amount =
+          Number(oldBooking.estimatedTotal || 0) ||
+          Number(oldBooking.menuTotal || 0) + Number(oldBooking.spaceFee || 0);
+
+        const loyaltyResult = await addLoyaltyPointsToUser(user, amount);
+
+        if (loyaltyResult) {
+          updateData.customerId = loyaltyResult.userId;
+          updateData.loyaltyPointsAwarded = true;
+          updateData.earnedPoints = loyaltyResult.earnedPoints;
+        }
+      }
+    }
+
+    await BookingSpace.findByIdAndUpdate(req.params.id, updateData);
 
     res.redirect("/staff/bookings");
   } catch (err) {
@@ -502,77 +925,38 @@ router.post('/events/:id/confirm-deposit', async (req, res) => {
 
 //  customers
 
-router.get('/customers', async (req, res) => {
+router.get("/customers", async (req, res) => {
   try {
-    const customers = await Customer.find().sort({ full_name: 1 });
-    const members   = await LoyalMember.find();
+    const customers = await User.find({
+      role: "customer"
+    })
+      .select("-passwordHash")
+      .sort({ createdAt: -1 });
 
-    const memberMap = {};
-    members.forEach(m => { memberMap[m.customer_id.toString()] = m; });
-    res.render('staff/customers/list', { customers, memberMap });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    res.render("staff/customers/list", {
+      customers
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.get('/customers/add', (req, res) => {
-  res.render('staff/customers/customer-form', { customer: null, action: '/staff/customers/add' });
-});
-
-router.post('/customers/add', async (req, res) => {
+router.get("/customers/:id", async (req, res) => {
   try {
-    await Customer.create(req.body);
-    res.redirect('/staff/customers');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
+    const customer = await User.findById(req.params.id).select("-passwordHash");
 
-router.get('/customers/:id', async (req, res) => {
-  try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer) return res.status(404).send('Customer not found');
-    const member = await LoyalMember.findOne({ customer_id: req.params.id });
-    res.render('staff/customers/detail', { customer, member });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
+    if (!customer) {
+      return res.status(404).send("Không tìm thấy khách hàng");
+    }
 
-router.get('/customers/:id/edit', async (req, res) => {
-  try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer) return res.status(404).send('Customer not found');
-    res.render('staff/customers/customer-form', { customer, action: `/staff/customers/${customer._id}/edit` });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.post('/customers/:id/edit', async (req, res) => {
-  try {
-    await Customer.findByIdAndUpdate(req.params.id, req.body);
-    res.redirect(`/staff/customers/${req.params.id}`);
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.post('/customers/:id/delete', async (req, res) => {
-  try {
-    await Customer.findByIdAndDelete(req.params.id);
-    await LoyalMember.deleteOne({ customer_id: req.params.id }); // cascade
-    res.redirect('/staff/customers');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-// register vip
-router.post('/customers/:id/enroll', async (req, res) => {
-  try {
-    await LoyalMember.create({ customer_id: req.params.id });
-    res.redirect(`/staff/customers/${req.params.id}`);
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-// update tier&points
-router.post('/customers/:id/membership', async (req, res) => {
-  try {
-    await LoyalMember.findOneAndUpdate(
-      { customer_id: req.params.id },
-      { tier: req.body.tier, total_points: req.body.total_points }
-    );
-    res.redirect(`/staff/customers/${req.params.id}`);
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    res.render("staff/customers/detail", {
+      customer
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
 module.exports = router;
