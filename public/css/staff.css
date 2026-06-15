@@ -240,3 +240,41 @@ body {
   border-radius: 10px;
   border: 1px solid #ead1bd;
 }
+
+.staff-realtime-notice {
+  background: #fff7ed;
+  border-bottom: 1px solid #e0c2ad;
+  padding: 8px 12px;
+  color: #000000;
+  font-size: 15px;
+  z-index: 9999;
+}
+
+.staff-realtime-title {
+  font-weight: 800;
+  color: #9a2f00;
+  margin-bottom: 2px;
+}
+
+.staff-realtime-message {
+  margin-bottom: 4px;
+}
+
+.staff-realtime-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.staff-realtime-actions a {
+  color: #1a56db;
+  text-decoration: underline;
+}
+
+.staff-realtime-actions button {
+  border: 1px solid #333333;
+  background: #ffffff;
+  color: #000000;
+  padding: 2px 8px;
+  cursor: pointer;
+}

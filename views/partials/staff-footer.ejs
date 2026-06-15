@@ -9,16 +9,70 @@
     const CUSTOMER_BACKEND_URL = "http://localhost:3000";
 
     const badge = document.getElementById("staff-new-order-badge");
-    const toast = document.getElementById("realtime-order-toast");
-    const toastBody = document.getElementById("realtime-order-toast-body");
-    const closeToastButton = document.getElementById("close-order-toast");
+
+    function formatMoney(value) {
+      return Number(value || 0).toLocaleString("vi-VN") + " đ";
+    }
+
+    function removeOldRealtimeNotice() {
+      const oldNotice = document.getElementById("staff-realtime-notice");
+
+      if (oldNotice) {
+        oldNotice.remove();
+      }
+    }
+
+    function showRealtimeNotice(options) {
+      removeOldRealtimeNotice();
+
+      const notice = document.createElement("div");
+
+      notice.id = "staff-realtime-notice";
+      notice.className = "staff-realtime-notice";
+
+      notice.innerHTML = `
+        <div class="staff-realtime-title">${options.title}</div>
+        <div class="staff-realtime-message">${options.message}</div>
+
+        <div class="staff-realtime-actions">
+          <a href="${options.href}">${options.linkText}</a>
+          <button type="button" id="close-realtime-notice">Đóng</button>
+        </div>
+      `;
+
+      const main = document.querySelector(".lc-main");
+
+      if (main) {
+        main.prepend(notice);
+      } else {
+        document.body.prepend(notice);
+      }
+
+      const closeButton = document.getElementById("close-realtime-notice");
+
+      if (closeButton) {
+        closeButton.addEventListener("click", function () {
+          notice.remove();
+        });
+      }
+
+      setTimeout(function () {
+        const currentNotice = document.getElementById("staff-realtime-notice");
+
+        if (currentNotice) {
+          currentNotice.remove();
+        }
+      }, 10000);
+    }
 
     function setPendingOrderCount(count) {
       if (!badge) return;
 
-      if (count > 0) {
+      const safeCount = Number(count || 0);
+
+      if (safeCount > 0) {
         badge.style.display = "inline-flex";
-        badge.innerText = count;
+        badge.innerText = safeCount;
       } else {
         badge.style.display = "none";
         badge.innerText = "0";
@@ -36,35 +90,6 @@
       } catch (error) {
         console.log("Không thể tải số đơn chờ xử lý:", error);
       }
-    }
-
-    function formatMoney(value) {
-      return Number(value || 0).toLocaleString("vi-VN") + " đ";
-    }
-
-    function showOrderToast(order) {
-      if (!toast || !toastBody) return;
-
-      const customerName = order.customerName || "Khách hàng";
-      const totalAmount = order.totalAmount || 0;
-
-      toastBody.innerText =
-        "Có đơn hàng mới từ " +
-        customerName +
-        " - Tổng tiền: " +
-        formatMoney(totalAmount);
-
-      toast.style.display = "block";
-
-      setTimeout(function () {
-        toast.style.display = "none";
-      }, 8000);
-    }
-
-    if (closeToastButton) {
-      closeToastButton.addEventListener("click", function () {
-        if (toast) toast.style.display = "none";
-      });
     }
 
     loadPendingOrderCount();
@@ -89,29 +114,39 @@
     socket.on("new-order", function (order) {
       console.log("Nhận đơn hàng mới:", order);
 
-      showOrderToast(order);
+      showRealtimeNotice({
+        title: "Có đơn hàng mới!",
+        message:
+          "Có đơn hàng mới từ " +
+          (order.customerName || "Khách hàng") +
+          " - Tổng tiền: " +
+          formatMoney(order.totalAmount),
+        href: "/staff/orders",
+        linkText: "Xem đơn hàng"
+      });
+
       loadPendingOrderCount();
     });
 
     socket.on("new-booking", function (booking) {
       console.log("Nhận đặt chỗ mới:", booking);
 
-      if (toast && toastBody) {
-        toastBody.innerText =
+      showRealtimeNotice({
+        title: "Có đặt chỗ mới!",
+        message:
           "Có đặt chỗ mới từ " +
           (booking.customerName || "Khách hàng") +
           " - Sự kiện: " +
           (booking.eventName || "Không có tên") +
           " - Báo giá: " +
-          Number(booking.estimatedTotal || 0).toLocaleString("vi-VN") +
-          " đ";
+          formatMoney(booking.estimatedTotal),
+        href: "/staff/bookings",
+        linkText: "Xem đặt chỗ"
+      });
+    });
 
-        toast.style.display = "block";
-
-        setTimeout(function () {
-          toast.style.display = "none";
-        }, 8000);
-      }
+    socket.on("order-status-updated", function () {
+      loadPendingOrderCount();
     });
   })();
 </script>
