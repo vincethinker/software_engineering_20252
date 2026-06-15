@@ -1,3 +1,6 @@
+const Order = require("../models/Order");
+const Product = require("../models/Product");
+const BookingSpace = require("../models/BookingSpace");
 const express = require('express');
 const router  = express.Router();
 const requireStaff = require('../middleware/requireStaff');
@@ -185,109 +188,230 @@ router.post('/snacks/:id/delete', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Database error'); }
 });
 
-//  ORDERS
+//  ORDERS - synced with customer backend collection "orders"
 
-router.get('/orders', async (req, res) => {
+router.get("/orders", async (req, res) => {
   try {
     const { status } = req.query;
-    const filter = status && status !== 'all' ? { order_status: status } : {};
-    const orders = await CafeOrder.find(filter).sort({ order_date: -1 });
-    res.render('staff/orders/list', { orders, currentStatus: status || 'all' });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
 
-router.get('/orders/add', async (req, res) => {
-  try {
-    const books  = await Book.find({ status: 'available' }).sort({ title: 1 });
-    const drinks = await DrinkProduct.find({ status: 'available' }).sort({ drink_name: 1 });
-    res.render('staff/orders/order-form', { books, drinks });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
+    const filter = {};
 
-router.post('/orders/add', async (req, res) => {
-  try {
-    const { order_type, order_status } = req.body;
-    const bookIds   = [].concat(req.body.book_id  || []);
-    const bookQtys  = [].concat(req.body.book_qty || []);
-    const drinkIds  = [].concat(req.body.drink_id  || []);
-    const drinkQtys = [].concat(req.body.drink_qty || []);
-
-    const order = await CafeOrder.create({ order_type, order_status, total_amount: 0 });
-    let total = 0;
-
-    for (let i = 0; i < bookIds.length; i++) {
-      if (!bookIds[i]) continue;
-      const book = await Book.findById(bookIds[i]);
-      const qty  = parseInt(bookQtys[i]) || 1;
-      if (book) {
-        await BookOrderDetail.create({ order_id: order._id, book_id: book._id, quantity: qty, unit_price: book.price });
-        total += book.price * qty;
-      }
+    if (status && status !== "all") {
+      filter.status = status;
     }
-    for (let i = 0; i < drinkIds.length; i++) {
-      if (!drinkIds[i]) continue;
-      const drink = await DrinkProduct.findById(drinkIds[i]);
-      const qty   = parseInt(drinkQtys[i]) || 1;
-      if (drink) {
-        await DrinkOrderDetail.create({ order_id: order._id, drink_id: drink._id, quantity: qty, unit_price: drink.price });
-        total += drink.price * qty;
-      }
-    }
-    await CafeOrder.findByIdAndUpdate(order._id, { total_amount: total });
-    res.redirect('/staff/orders');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
 
-router.get('/orders/:id', async (req, res) => {
-  try {
-    const order = await CafeOrder.findById(req.params.id);
-    if (!order) return res.status(404).send('Order not found');
-    const bookItems  = await BookOrderDetail.find({ order_id: req.params.id }).populate('book_id');
-    const drinkItems = await DrinkOrderDetail.find({ order_id: req.params.id }).populate('drink_id');
-    res.render('staff/orders/detail', { order, bookItems, drinkItems });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
+    const orders = await Order.find(filter).sort({ createdAt: -1 });
 
-router.post('/orders/:id/status', async (req, res) => {
-  try {
-    await CafeOrder.findByIdAndUpdate(req.params.id, { order_status: req.body.order_status });
-    res.redirect('/staff/orders');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-//  BOOKINGs
-
-router.get('/bookings', async (req, res) => {
-  try {
-    const { status } = req.query;
-    const filter = status && status !== 'all' ? { booking_status: status } : {};
-    const bookings = await WorkingSpaceBooking.find(filter).sort({ booking_date: 1 });
-    res.render('staff/bookings/list', { bookings, currentStatus: status || 'all' });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.get('/bookings/add', (req, res) => {
-  res.render('staff/bookings/booking-form');
-});
-
-router.post('/bookings/add', async (req, res) => {
-  try {
-    await WorkingSpaceBooking.create({
-      booking_date:     req.body.booking_date,
-      start_time:       req.body.start_time,
-      end_time:         req.body.end_time,
-      number_of_people: req.body.number_of_people,
-      booking_status:   req.body.booking_status
+    res.render("staff/orders/list", {
+      orders,
+      currentStatus: status || "all"
     });
-    res.redirect('/staff/bookings');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
-router.post('/bookings/:id/status', async (req, res) => {
+router.get("/orders/add", async (req, res) => {
   try {
-    await WorkingSpaceBooking.findByIdAndUpdate(req.params.id, { booking_status: req.body.booking_status });
-    res.redirect('/staff/bookings');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
+    const products = await Product.find({
+      isActive: true,
+      status: { $ne: "hidden" }
+    }).sort({ type: 1, name: 1 });
+
+    res.render("staff/orders/order-form", {
+      products
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+router.post("/orders/add", async (req, res) => {
+  try {
+    const {
+      customerName,
+      phone,
+      email,
+      orderType,
+      paymentMethod,
+      paymentStatus,
+      status,
+      note
+    } = req.body;
+
+    const productIds = [].concat(req.body.product_id || []);
+    const productQtys = [].concat(req.body.product_qty || []);
+
+    const items = [];
+    let totalAmount = 0;
+
+    for (let i = 0; i < productIds.length; i++) {
+      if (!productIds[i]) continue;
+
+      const product = await Product.findById(productIds[i]);
+      const quantity = parseInt(productQtys[i]) || 1;
+
+      if (product && quantity > 0) {
+        items.push({
+          productId: product._id,
+          name: product.name,
+          type: product.type,
+          price: product.price,
+          quantity,
+          imageUrl: product.imageUrl || ""
+        });
+
+        totalAmount += product.price * quantity;
+      }
+    }
+
+    if (items.length === 0) {
+      return res.status(400).send("Vui lòng chọn ít nhất một sản phẩm");
+    }
+
+    await Order.create({
+      customerName: customerName || "Khách tại quầy",
+      phone: phone || "Không có",
+      email: email || "",
+      items,
+      totalAmount,
+      orderType: orderType || "takeaway",
+      paymentMethod: paymentMethod || "cash",
+      paymentStatus:
+        paymentStatus || (paymentMethod === "cash" ? "unpaid" : "paid"),
+      status: status || "pending",
+      isSeenByStaff: true,
+      note: note || ""
+    });
+
+    res.redirect("/staff/orders");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+router.get("/orders/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).send("Order not found");
+    }
+
+    await Order.findByIdAndUpdate(req.params.id, {
+      isSeenByStaff: true
+    });
+
+    res.render("staff/orders/detail", {
+      order
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+router.post("/orders/:id/status", async (req, res) => {
+  try {
+    await Order.findByIdAndUpdate(req.params.id, {
+      status: req.body.status,
+      isSeenByStaff: true
+    });
+
+    res.redirect("/staff/orders");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+//  BOOKINGS - synced with customer backend collection "bookingspaces"
+
+router.get("/bookings", async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const filter = {};
+
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    const bookings = await BookingSpace.find(filter).sort({ createdAt: -1 });
+
+    res.render("staff/bookings/list", {
+      bookings,
+      currentStatus: status || "all"
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+router.get("/bookings/add", (req, res) => {
+  res.render("staff/bookings/booking-form");
+});
+
+router.post("/bookings/add", async (req, res) => {
+  try {
+    const {
+      customerName,
+      phone,
+      email,
+      eventName,
+      eventType,
+      eventDate,
+      eventTime,
+      participantCount,
+      duration,
+      note,
+      status
+    } = req.body;
+
+    const spaceFee = Number(participantCount || 0) * 20000;
+
+    await BookingSpace.create({
+      customerName: customerName || "Khách tại quầy",
+      phone: phone || "Không có",
+      email: email || "staff-created@livrecafe.local",
+      eventName: eventName || "Đặt chỗ làm việc",
+      eventType: eventType || "study",
+      eventDate,
+      eventTime,
+      participantCount: Number(participantCount) || 1,
+      duration: duration || "1",
+      selectedMenu: [],
+      spaceFee,
+      menuTotal: 0,
+      estimatedTotal: spaceFee,
+      status: status || "pending",
+      isSeenByStaff: true,
+      note: note || ""
+    });
+
+    res.redirect("/staff/bookings");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
+});
+
+router.post("/bookings/:id/status", async (req, res) => {
+  try {
+    await BookingSpace.findByIdAndUpdate(req.params.id, {
+      status: req.body.status,
+      isSeenByStaff: true
+    });
+
+    res.redirect("/staff/bookings");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
 //  events

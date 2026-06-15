@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LivrèCafé — Nhân viên</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/staff.css">
 </head>
@@ -15,17 +16,32 @@
       <img src="/logo.png" alt="Livrè Cafe" style="height:42px; border-radius:50%;">
       <span class="staff-badge">Nhân viên</span>
     </a>
+
     <div class="lc-nav-links">
       <a href="/staff">Tổng quan</a>
       <a href="/staff/books">Sách</a>
       <a href="/staff/drinks">Đồ uống</a>
       <a href="/staff/snacks">Đồ ăn</a>
-      <a href="/staff/orders">Đơn hàng</a>
+
+      <a href="/staff/orders" class="staff-order-link">
+        Đơn hàng
+        <span id="staff-new-order-badge" class="staff-new-order-badge" style="display:none;">0</span>
+      </a>
+
       <a href="/staff/bookings">Đặt chỗ</a>
       <a href="/staff/events">Sự kiện</a>
       <a href="/staff/customers">Khách hàng</a>
     </div>
   </div>
 </nav>
+
+<div id="realtime-order-toast" class="realtime-order-toast" style="display:none;">
+  <div class="realtime-order-toast-title">Có đơn hàng mới!</div>
+  <div id="realtime-order-toast-body" class="realtime-order-toast-body"></div>
+  <div class="realtime-order-toast-actions">
+    <a href="/staff/orders">Xem đơn hàng</a>
+    <button type="button" id="close-order-toast">Đóng</button>
+  </div>
+</div>
 
 <div class="lc-main">

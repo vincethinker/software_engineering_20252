@@ -6,74 +6,153 @@
 </div>
 
 <%
-const badgeMap    = { pending:'bg-warning text-dark', preparing:'bg-info text-dark', ready:'bg-primary', completed:'bg-success', cancelled:'bg-secondary' };
-const statusVN    = { pending:'Chờ xử lý', preparing:'Đang chuẩn bị', ready:'Sẵn sàng', completed:'Hoàn thành', cancelled:'Đã hủy' };
-const orderTypeVN = { 'dine-in':'Tại chỗ', takeaway:'Mang về', delivery:'Giao hàng' };
-const badge       = badgeMap[order.order_status] || 'bg-secondary';
+const badgeMap = {
+  pending: 'bg-warning text-dark',
+  confirmed: 'bg-primary',
+  preparing: 'bg-info text-dark',
+  completed: 'bg-success',
+  cancelled: 'bg-secondary'
+};
+
+const statusVN = {
+  pending: 'Chờ xử lý',
+  confirmed: 'Đã xác nhận',
+  preparing: 'Đang chuẩn bị',
+  completed: 'Hoàn thành',
+  cancelled: 'Đã hủy'
+};
+
+const orderTypeVN = {
+  takeaway: 'Mang về',
+  dine_in: 'Dùng tại quán'
+};
+
+const paymentMethodVN = {
+  bank: 'Thẻ ngân hàng',
+  cash: 'Tiền mặt'
+};
+
+const paymentStatusVN = {
+  paid: 'Đã thanh toán',
+  unpaid: 'Chưa thanh toán'
+};
+
+const badge = badgeMap[order.status] || 'bg-secondary';
 %>
 
-<div class="card p-4 mb-4" style="max-width:600px">
+<div class="card p-4 mb-4" style="max-width:760px">
   <div class="row g-3">
-    <div class="col-6"><div class="text-muted small">Mã đơn</div><code><%= order._id %></code></div>
-    <div class="col-6"><div class="text-muted small">Ngày đặt</div><%= new Date(order.order_date).toLocaleString('vi-VN') %></div>
-    <div class="col-6"><div class="text-muted small">Loại</div><%= orderTypeVN[order.order_type] || order.order_type %></div>
-    <div class="col-6"><div class="text-muted small">Trạng thái</div><span class="badge <%= badge %>"><%= statusVN[order.order_status] || order.order_status %></span></div>
-    <div class="col-6"><div class="text-muted small">Tổng tiền</div><strong><%= Number(order.total_amount).toLocaleString('vi-VN') %>đ</strong></div>
+    <div class="col-6">
+      <div class="text-muted small">Mã đơn</div>
+      <code><%= order._id %></code>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Ngày đặt</div>
+      <%= order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Khách hàng</div>
+      <strong><%= order.customerName || '—' %></strong>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Số điện thoại</div>
+      <%= order.phone || '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Email</div>
+      <%= order.email || '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Loại đơn</div>
+      <%= orderTypeVN[order.orderType] || order.orderType || '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Phương thức thanh toán</div>
+      <%= paymentMethodVN[order.paymentMethod] || order.paymentMethod || '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Trạng thái thanh toán</div>
+      <%= paymentStatusVN[order.paymentStatus] || order.paymentStatus || '—' %>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Trạng thái đơn</div>
+      <span class="badge <%= badge %>">
+        <%= statusVN[order.status] || order.status %>
+      </span>
+    </div>
+
+    <div class="col-6">
+      <div class="text-muted small">Tổng tiền</div>
+      <strong><%= Number(order.totalAmount || 0).toLocaleString('vi-VN') %>đ</strong>
+    </div>
+
+    <div class="col-12">
+      <div class="text-muted small">Ghi chú</div>
+      <%= order.note || '—' %>
+    </div>
   </div>
+
   <hr class="my-3">
+
   <form action="/staff/orders/<%= order._id %>/status" method="POST" class="d-flex gap-2 align-items-center">
     <label class="form-label mb-0 text-muted small">Cập nhật trạng thái:</label>
-    <select name="order_status" class="form-select form-select-sm" style="width:160px">
-      <option value="pending"   <%= order.order_status==='pending'   ?'selected':'' %>>Chờ xử lý</option>
-      <option value="preparing" <%= order.order_status==='preparing' ?'selected':'' %>>Đang chuẩn bị</option>
-      <option value="ready"     <%= order.order_status==='ready'     ?'selected':'' %>>Sẵn sàng</option>
-      <option value="completed" <%= order.order_status==='completed' ?'selected':'' %>>Hoàn thành</option>
-      <option value="cancelled" <%= order.order_status==='cancelled' ?'selected':'' %>>Đã hủy</option>
+
+    <select name="status" class="form-select form-select-sm" style="width:170px">
+      <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>>Chờ xử lý</option>
+      <option value="confirmed" <%= order.status === 'confirmed' ? 'selected' : '' %>>Đã xác nhận</option>
+      <option value="preparing" <%= order.status === 'preparing' ? 'selected' : '' %>>Đang chuẩn bị</option>
+      <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>>Hoàn thành</option>
+      <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>>Đã hủy</option>
     </select>
+
     <button type="submit" class="btn btn-sm btn-primary">Lưu</button>
   </form>
 </div>
 
-<% if (bookItems.length > 0) { %>
-  <h5 class="mb-2">Sách đã đặt</h5>
-  <div class="card mb-4">
-    <table class="table mb-0">
-      <thead class="table-light"><tr><th>Tiêu đề</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th></tr></thead>
-      <tbody>
-        <% bookItems.forEach(item => { %>
-          <tr>
-            <td><%= item.book_id ? item.book_id.title : '(đã xóa)' %></td>
-            <td><%= Number(item.unit_price).toLocaleString('vi-VN') %>đ</td>
-            <td><%= item.quantity %></td>
-            <td><%= Number(item.unit_price * item.quantity).toLocaleString('vi-VN') %>đ</td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
-<% } %>
+<h5 class="mb-2">Sản phẩm trong đơn</h5>
 
-<% if (drinkItems.length > 0) { %>
-  <h5 class="mb-2">Đồ uống đã đặt</h5>
-  <div class="card mb-4">
-    <table class="table mb-0">
-      <thead class="table-light"><tr><th>Tên</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th></tr></thead>
-      <tbody>
-        <% drinkItems.forEach(item => { %>
-          <tr>
-            <td><%= item.drink_id ? item.drink_id.drink_name : '(đã xóa)' %></td>
-            <td><%= Number(item.unit_price).toLocaleString('vi-VN') %>đ</td>
-            <td><%= item.quantity %></td>
-            <td><%= Number(item.unit_price * item.quantity).toLocaleString('vi-VN') %>đ</td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
-<% } %>
+<div class="card mb-4">
+  <table class="table mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>Tên sản phẩm</th>
+        <th>Loại</th>
+        <th>Đơn giá</th>
+        <th>SL</th>
+        <th>Thành tiền</th>
+      </tr>
+    </thead>
 
-<% if (bookItems.length === 0 && drinkItems.length === 0) { %>
-  <p class="text-muted">Không có sản phẩm nào trong đơn này.</p>
-<% } %>
+    <tbody>
+      <% if (!order.items || order.items.length === 0) { %>
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">
+            Không có sản phẩm nào trong đơn này.
+          </td>
+        </tr>
+      <% } %>
+
+      <% order.items.forEach(item => { %>
+        <tr>
+          <td><%= item.name %></td>
+          <td>
+            <%= item.type === 'drink' ? 'Đồ uống' : item.type === 'snack' ? 'Đồ ăn' : 'Sách' %>
+          </td>
+          <td><%= Number(item.price).toLocaleString('vi-VN') %>đ</td>
+          <td><%= item.quantity %></td>
+          <td><%= Number(item.price * item.quantity).toLocaleString('vi-VN') %>đ</td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
 
 <%- include('../../partials/staff-footer') %>

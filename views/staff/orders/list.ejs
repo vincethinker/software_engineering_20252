@@ -6,50 +6,131 @@
 </div>
 
 <ul class="nav nav-pills mb-3">
-  <% [['all','Tất cả'],['pending','Chờ xử lý'],['preparing','Đang chuẩn bị'],['ready','Sẵn sàng'],['completed','Hoàn thành'],['cancelled','Đã hủy']].forEach(([val,label]) => { %>
+  <% [
+    ['all','Tất cả'],
+    ['pending','Chờ xử lý'],
+    ['confirmed','Đã xác nhận'],
+    ['preparing','Đang chuẩn bị'],
+    ['completed','Hoàn thành'],
+    ['cancelled','Đã hủy']
+  ].forEach(([val,label]) => { %>
     <li class="nav-item">
-      <a class="nav-link <%= currentStatus === val ? 'active' : '' %>" href="/staff/orders?status=<%= val %>"><%= label %></a>
+      <a class="nav-link <%= currentStatus === val ? 'active' : '' %>" href="/staff/orders?status=<%= val %>">
+        <%= label %>
+      </a>
     </li>
   <% }) %>
 </ul>
 
 <%
-const orderStatusVN = { pending:'Chờ xử lý', preparing:'Đang chuẩn bị', ready:'Sẵn sàng', completed:'Hoàn thành', cancelled:'Đã hủy' };
-const orderTypeVN   = { 'dine-in':'Tại chỗ', takeaway:'Mang về', delivery:'Giao hàng' };
-const badgeMap      = { pending:'bg-warning text-dark', preparing:'bg-info text-dark', ready:'bg-primary', completed:'bg-success', cancelled:'bg-secondary' };
+const orderStatusVN = {
+  pending: 'Chờ xử lý',
+  confirmed: 'Đã xác nhận',
+  preparing: 'Đang chuẩn bị',
+  completed: 'Hoàn thành',
+  cancelled: 'Đã hủy'
+};
+
+const orderTypeVN = {
+  takeaway: 'Mang về',
+  dine_in: 'Dùng tại quán'
+};
+
+const paymentMethodVN = {
+  bank: 'Thẻ ngân hàng',
+  cash: 'Tiền mặt'
+};
+
+const badgeMap = {
+  pending: 'bg-warning text-dark',
+  confirmed: 'bg-primary',
+  preparing: 'bg-info text-dark',
+  completed: 'bg-success',
+  cancelled: 'bg-secondary'
+};
 %>
 
 <div class="card">
   <table class="table table-hover mb-0">
     <thead class="table-dark">
       <tr>
-        <th>Mã đơn</th><th>Ngày</th><th>Loại</th><th>Tổng tiền</th><th>Trạng thái</th><th>Cập nhật</th><th></th>
+        <th>Mã đơn</th>
+        <th>Khách hàng</th>
+        <th>SĐT</th>
+        <th>Ngày</th>
+        <th>Loại</th>
+        <th>Thanh toán</th>
+        <th>Tổng tiền</th>
+        <th>Trạng thái</th>
+        <th>Cập nhật</th>
+        <th></th>
       </tr>
     </thead>
+
     <tbody>
       <% if (orders.length === 0) { %>
-        <tr><td colspan="7" class="text-center text-muted py-4">Chưa có đơn hàng nào.</td></tr>
+        <tr>
+          <td colspan="10" class="text-center text-muted py-4">
+            Chưa có đơn hàng nào.
+          </td>
+        </tr>
       <% } %>
+
       <% orders.forEach(order => { %>
         <tr>
-          <td><code><%= order._id.toString().slice(-8) %></code></td>
-          <td><%= new Date(order.order_date).toLocaleString('vi-VN') %></td>
-          <td><%= orderTypeVN[order.order_type] || order.order_type %></td>
-          <td><%= Number(order.total_amount).toLocaleString('vi-VN') %>đ</td>
-          <td><span class="badge <%= badgeMap[order.order_status] %>"><%= orderStatusVN[order.order_status] || order.order_status %></span></td>
+          <td>
+            <code><%= order._id.toString().slice(-8) %></code>
+            <% if (order.isSeenByStaff === false) { %>
+              <span class="badge bg-danger ms-1">Mới</span>
+            <% } %>
+          </td>
+
+          <td><%= order.customerName || '—' %></td>
+          <td><%= order.phone || '—' %></td>
+
+          <td>
+            <%= order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : '—' %>
+          </td>
+
+          <td>
+            <%= orderTypeVN[order.orderType] || order.orderType || '—' %>
+          </td>
+
+          <td>
+            <%= paymentMethodVN[order.paymentMethod] || order.paymentMethod || '—' %>
+          </td>
+
+          <td>
+            <%= Number(order.totalAmount || 0).toLocaleString('vi-VN') %>đ
+          </td>
+
+          <td>
+            <span class="badge <%= badgeMap[order.status] || 'bg-secondary' %>">
+              <%= orderStatusVN[order.status] || order.status %>
+            </span>
+          </td>
+
           <td>
             <form action="/staff/orders/<%= order._id %>/status" method="POST" class="d-flex gap-1">
-              <select name="order_status" class="form-select form-select-sm" style="width:150px">
-                <option value="pending"   <%= order.order_status==='pending'   ?'selected':'' %>>Chờ xử lý</option>
-                <option value="preparing" <%= order.order_status==='preparing' ?'selected':'' %>>Đang chuẩn bị</option>
-                <option value="ready"     <%= order.order_status==='ready'     ?'selected':'' %>>Sẵn sàng</option>
-                <option value="completed" <%= order.order_status==='completed' ?'selected':'' %>>Hoàn thành</option>
-                <option value="cancelled" <%= order.order_status==='cancelled' ?'selected':'' %>>Đã hủy</option>
+              <select name="status" class="form-select form-select-sm" style="width:150px">
+                <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>>Chờ xử lý</option>
+                <option value="confirmed" <%= order.status === 'confirmed' ? 'selected' : '' %>>Đã xác nhận</option>
+                <option value="preparing" <%= order.status === 'preparing' ? 'selected' : '' %>>Đang chuẩn bị</option>
+                <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>>Hoàn thành</option>
+                <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>>Đã hủy</option>
               </select>
-              <button type="submit" class="btn btn-sm btn-outline-primary">Lưu</button>
+
+              <button type="submit" class="btn btn-sm btn-outline-primary">
+                Lưu
+              </button>
             </form>
           </td>
-          <td><a href="/staff/orders/<%= order._id %>" class="btn btn-sm btn-outline-secondary">Xem</a></td>
+
+          <td>
+            <a href="/staff/orders/<%= order._id %>" class="btn btn-sm btn-outline-secondary">
+              Xem
+            </a>
+          </td>
         </tr>
       <% }) %>
     </tbody>

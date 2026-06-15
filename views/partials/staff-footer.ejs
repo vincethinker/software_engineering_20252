@@ -1,4 +1,116 @@
 </div><!-- /lc-main -->
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+<script>
+  (function () {
+    const CUSTOMER_SOCKET_URL = "http://localhost:3000";
+
+    const badge = document.getElementById("staff-new-order-badge");
+    const toast = document.getElementById("realtime-order-toast");
+    const toastBody = document.getElementById("realtime-order-toast-body");
+    const closeToastButton = document.getElementById("close-order-toast");
+
+    function getCurrentNewOrderCount() {
+      return Number(sessionStorage.getItem("staff_new_order_count") || "0");
+    }
+
+    function setNewOrderCount(count) {
+      sessionStorage.setItem("staff_new_order_count", String(count));
+
+      if (!badge) return;
+
+      if (count > 0) {
+        badge.style.display = "inline-flex";
+        badge.innerText = count;
+      } else {
+        badge.style.display = "none";
+        badge.innerText = "0";
+      }
+    }
+
+    function formatMoney(value) {
+      return Number(value || 0).toLocaleString("vi-VN") + " đ";
+    }
+
+    function showOrderToast(order) {
+      if (!toast || !toastBody) return;
+
+      const customerName = order.customerName || order.customer_name || "Khách hàng";
+      const totalAmount = order.totalAmount || order.total_amount || 0;
+
+      toastBody.innerText =
+        "Đơn hàng mới từ " +
+        customerName +
+        " - Tổng tiền: " +
+        formatMoney(totalAmount);
+
+      toast.style.display = "block";
+
+      setTimeout(function () {
+        toast.style.display = "none";
+      }, 8000);
+    }
+
+    if (closeToastButton) {
+      closeToastButton.addEventListener("click", function () {
+        if (toast) toast.style.display = "none";
+      });
+    }
+
+    setNewOrderCount(getCurrentNewOrderCount());
+
+    if (!window.io) {
+      console.warn("Socket.IO client chưa tải được. Kiểm tra customer backend http://localhost:3000");
+      return;
+    }
+
+    const socket = io(CUSTOMER_SOCKET_URL, {
+      transports: ["websocket", "polling"]
+    });
+
+    socket.on("connect", function () {
+      console.log("Đã kết nối realtime tới customer backend:", socket.id);
+    });
+
+    socket.on("disconnect", function () {
+      console.log("Mất kết nối realtime tới customer backend");
+    });
+
+    socket.on("new-order", function (order) {
+      console.log("Nhận đơn hàng mới:", order);
+
+      const nextCount = getCurrentNewOrderCount() + 1;
+      setNewOrderCount(nextCount);
+      showOrderToast(order);
+    });
+    socket.on("new-booking", function (booking) {
+  console.log("Nhận đặt chỗ mới:", booking);
+
+  const toast = document.getElementById("realtime-order-toast");
+  const toastBody = document.getElementById("realtime-order-toast-body");
+
+  if (toast && toastBody) {
+    toastBody.innerText =
+      "Có đặt chỗ mới từ " +
+      (booking.customerName || "Khách hàng") +
+      " - Sự kiện: " +
+      (booking.eventName || "Không có tên") +
+      " - Báo giá: " +
+      Number(booking.estimatedTotal || 0).toLocaleString("vi-VN") +
+      " đ";
+
+    toast.style.display = "block";
+
+    setTimeout(function () {
+      toast.style.display = "none";
+    }, 8000);
+  }
+    });
+  })();
+</script>
+
 </body>
 </html>

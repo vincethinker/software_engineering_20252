@@ -5,44 +5,80 @@
   <h4 class="mb-0">Tạo đơn hàng mới</h4>
 </div>
 
-<form action="/staff/orders/add" method="POST" class="card p-4" style="max-width:760px">
-
-  <%# ── Order meta ── %>
+<form action="/staff/orders/add" method="POST" class="card p-4" style="max-width:860px">
   <div class="row mb-4">
     <div class="col-md-6 mb-3">
+      <label class="form-label">Tên khách hàng</label>
+      <input name="customerName" class="form-control" placeholder="Khách tại quầy">
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Số điện thoại</label>
+      <input name="phone" class="form-control" placeholder="Không có">
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Email</label>
+      <input name="email" type="email" class="form-control" placeholder="Nếu có">
+    </div>
+
+    <div class="col-md-6 mb-3">
       <label class="form-label">Loại đơn</label>
-      <select name="order_type" class="form-select">
-        <option value="dine-in">Tại chỗ</option>
+      <select name="orderType" class="form-select">
         <option value="takeaway">Mang về</option>
-        <option value="delivery">Giao hàng</option>
+        <option value="dine_in">Dùng tại quán</option>
       </select>
     </div>
+
     <div class="col-md-6 mb-3">
-      <label class="form-label">Trạng thái</label>
-      <select name="order_status" class="form-select">
-        <option value="pending">Chờ xử lý</option>
-        <option value="preparing">Đang chuẩn bị</option>
-        <option value="ready">Sẵn sàng</option>
-        <option value="completed">Hoàn thành</option>
+      <label class="form-label">Phương thức thanh toán</label>
+      <select name="paymentMethod" class="form-select">
+        <option value="cash">Tiền mặt</option>
+        <option value="bank">Thẻ ngân hàng / Chuyển khoản</option>
       </select>
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Trạng thái thanh toán</label>
+      <select name="paymentStatus" class="form-select">
+        <option value="unpaid">Chưa thanh toán</option>
+        <option value="paid">Đã thanh toán</option>
+      </select>
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Trạng thái đơn</label>
+      <select name="status" class="form-select">
+        <option value="pending">Chờ xử lý</option>
+        <option value="confirmed">Đã xác nhận</option>
+        <option value="preparing">Đang chuẩn bị</option>
+        <option value="completed">Hoàn thành</option>
+        <option value="cancelled">Đã hủy</option>
+      </select>
+    </div>
+
+    <div class="col-md-12 mb-3">
+      <label class="form-label">Ghi chú</label>
+      <textarea name="note" class="form-control" rows="2"></textarea>
     </div>
   </div>
 
-  <%# ── Drink line items ── %>
-  <h6 style="color:var(--brown)">Đồ uống</h6>
-  <table class="table table-sm align-middle" id="drink-table">
-    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('drink')">+ Thêm đồ uống</button>
+  <h6 style="color:var(--brown)">Sản phẩm</h6>
 
-  <%# ── Book line items ── %>
-  <h6 style="color:var(--brown)">Sách</h6>
-  <table class="table table-sm align-middle" id="book-table">
-    <thead><tr><th style="width:60%">Sản phẩm</th><th>Số lượng</th><th></th></tr></thead>
+  <table class="table table-sm align-middle" id="product-table">
+    <thead>
+      <tr>
+        <th style="width:65%">Sản phẩm</th>
+        <th>Số lượng</th>
+        <th></th>
+      </tr>
+    </thead>
     <tbody></tbody>
   </table>
-  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow('book')">+ Thêm sách</button>
+
+  <button type="button" class="btn btn-sm btn-outline-primary mb-4" onclick="addRow()">
+    + Thêm sản phẩm
+  </button>
 
   <div class="d-flex gap-2 border-top pt-3">
     <button type="submit" class="btn btn-primary">Tạo đơn hàng</button>
@@ -50,40 +86,59 @@
   </div>
 </form>
 
-<%# ── Product option data for JS ── %>
 <script>
-  const DRINKS = [
-    <% drinks.forEach(d => { %>
-      { id: "<%= d._id %>", name: "<%= d.drink_name %>", price: <%= d.price %> },
-    <% }) %>
-  ];
-  const BOOKS = [
-    <% books.forEach(b => { %>
-      { id: "<%= b._id %>", name: "<%= b.title.replace(/"/g, '&quot;') %>", price: <%= b.price %> },
+  const PRODUCTS = [
+    <% products.forEach(p => { %>
+      {
+        id: "<%= p._id %>",
+        name: "<%= String(p.name).replace(/"/g, '&quot;') %>",
+        type: "<%= p.type %>",
+        price: <%= p.price %>
+      },
     <% }) %>
   ];
 
-  function addRow(type) {
-    const data = type === 'drink' ? DRINKS : BOOKS;
-    const tbody = document.querySelector(`#${type}-table tbody`);
-    const tr = document.createElement('tr');
+  function getTypeName(type) {
+    if (type === "drink") return "Đồ uống";
+    if (type === "snack") return "Đồ ăn";
+    if (type === "book") return "Sách";
+    return type;
+  }
 
-    let options = '<option value="">— Chọn —</option>';
-    data.forEach(p => {
-      options += `<option value="${p.id}">${p.name} (${p.price.toLocaleString('vi-VN')}đ)</option>`;
+  function addRow() {
+    const tbody = document.querySelector("#product-table tbody");
+    const tr = document.createElement("tr");
+
+    let options = '<option value="">— Chọn sản phẩm —</option>';
+
+    PRODUCTS.forEach(p => {
+      options += `
+        <option value="${p.id}">
+          [${getTypeName(p.type)}] ${p.name} (${Number(p.price).toLocaleString("vi-VN")}đ)
+        </option>
+      `;
     });
 
     tr.innerHTML = `
-      <td><select name="${type}_id" class="form-select form-select-sm">${options}</select></td>
-      <td><input type="number" name="${type}_qty" class="form-control form-control-sm" value="1" min="1" style="width:90px"></td>
-      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">×</button></td>
+      <td>
+        <select name="product_id" class="form-select form-select-sm">
+          ${options}
+        </select>
+      </td>
+
+      <td>
+        <input type="number" name="product_qty" class="form-control form-control-sm" value="1" min="1" style="width:90px">
+      </td>
+
+      <td>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">×</button>
+      </td>
     `;
+
     tbody.appendChild(tr);
   }
 
-  // start each table with one empty row
-  addRow('drink');
-  addRow('book');
+  addRow();
 </script>
 
 <%- include('../../partials/staff-footer') %>
