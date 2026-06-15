@@ -1,28 +1,21 @@
-const express = require('express');
-const router  = express.Router();
-const requireStaff = require('../middleware/requireStaff');
+const express = require("express");
+const router = express.Router();
+
+const requireStaff = require("../middleware/requireStaff");
+
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
-//Models
-const Book                = require('../models/Book');
-const DrinkProduct        = require('../models/DrinkProduct');
-const SnackProduct        = require('../models/SnackProduct');
-const CafeOrder           = require('../models/CafeOrder');
-const BookOrderDetail     = require('../models/BookOrderDetail');
-const DrinkOrderDetail    = require('../models/DrinkOrderDetail');
-const WorkingSpaceBooking = require('../models/WorkingSpaceBooking');
-const EventRegistration   = require('../models/EventRegistration');
-const Deposit             = require('../models/Deposit');
-const EventDrinkItem      = require('../models/EventDrinkItem');
-const EventSnackItem      = require('../models/EventSnackItem');
-const Customer            = require('../models/Customer');
-const LoyalMember         = require('../models/LoyalMember');
-const Order               = require("../models/Order");
-const Product             = require("../models/Product");
-const BookingSpace        = require("../models/BookingSpace");
-const User                = require("../models/User");
+// Models đang dùng trong luồng hiện tại
+const Order = require("../models/Order");
+const Product = require("../models/Product");
+const BookingSpace = require("../models/BookingSpace");
+const User = require("../models/User");
+
+// =========================
+// Helpers: product upload
+// =========================
 
 function getProductTypeFromUrl(req) {
   if (req.originalUrl.includes("/books")) return "book";
@@ -104,7 +97,11 @@ function getProductImageUrl(req) {
   const folder = getImageFolderByType(type);
 
   return `/images/${folder}/${req.file.filename}`;
-};
+}
+
+// =========================
+// Helpers: loyalty points
+// =========================
 
 function calculateEarnedPoints(amount) {
   return Math.floor(Number(amount || 0) / 10000);
@@ -163,15 +160,89 @@ async function findUserForBooking(booking) {
   return null;
 }
 
+async function findUserForOrder(phone) {
+  if (!phone) return null;
+
+  const user = await User.findOne({
+    phone,
+    role: "customer"
+  });
+
+  return user;
+}
+
+async function deductStockForItems(items) {
+  if (!items || items.length === 0) return;
+
+  for (const item of items) {
+    if (!item.productId) continue;
+
+    const quantity = Number(item.quantity || 0);
+
+    if (quantity <= 0) continue;
+
+    const product = await Product.findById(item.productId);
+
+    if (!product) continue;
+
+    const currentStock = Number(product.stock || 0);
+    const newStock = Math.max(currentStock - quantity, 0);
+
+    const updateData = {
+      stock: newStock
+    };
+
+    if (newStock <= 0) {
+      updateData.status = "out_of_stock";
+    }
+
+    await Product.findByIdAndUpdate(product._id, updateData);
+  }
+}
+
+async function deductStockForOrder(order) {
+  if (!order || !order.items || order.items.length === 0) {
+    return;
+  }
+
+  for (const item of order.items) {
+    if (!item.productId) continue;
+
+    const quantity = Number(item.quantity || 0);
+
+    if (quantity <= 0) continue;
+
+    const product = await Product.findById(item.productId);
+
+    if (!product) continue;
+
+    const currentStock = Number(product.stock || 0);
+    const newStock = Math.max(currentStock - quantity, 0);
+
+    const updateData = {
+      stock: newStock
+    };
+
+    if (newStock <= 0) {
+      updateData.status = "out_of_stock";
+    }
+
+    await Product.findByIdAndUpdate(product._id, updateData);
+  }
+}
+
 // Protect all staff routes
 router.use(requireStaff);
 
-//  DASHBOARD
+// =========================
+// DASHBOARD
+// =========================
 
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -179,35 +250,91 @@ router.get('/', async (req, res) => {
       pendingOrders,
       ordersToday,
       pendingBookings,
-      upcomingEvents,
-      depositsToConfirm,
-      bookStockResult
+      bookStockResult,
+      drinkStockResult,
+      snackStockResult
     ] = await Promise.all([
-      CafeOrder.countDocuments({ order_status: 'pending' }),
-      CafeOrder.countDocuments({ order_date: { $gte: today, $lt: tomorrow } }),
-      WorkingSpaceBooking.countDocuments({ booking_status: 'pending' }),
-      EventRegistration.countDocuments({ event_date: { $gte: today }, registration_status: { $ne: 'cancelled' } }),
-      Deposit.countDocuments({ deposit_status: 'received' }),
-      Book.aggregate([{ $group: { _id: null, total: { $sum: '$quantity' } } }])
+      Order.countDocuments({
+        status: "pending"
+      }),
+
+      Order.countDocuments({
+        createdAt: {
+          $gte: today,
+          $lt: tomorrow
+        }
+      }),
+
+      BookingSpace.countDocuments({
+        status: "pending"
+      }),
+
+      Product.aggregate([
+        {
+          $match: {
+            type: "book",
+            isActive: true,
+            status: { $ne: "hidden" }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$stock" }
+          }
+        }
+      ]),
+
+      Product.aggregate([
+        {
+          $match: {
+            type: "drink",
+            isActive: true,
+            status: { $ne: "hidden" }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$stock" }
+          }
+        }
+      ]),
+
+      Product.aggregate([
+        {
+          $match: {
+            type: "snack",
+            isActive: true,
+            status: { $ne: "hidden" }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$stock" }
+          }
+        }
+      ])
     ]);
 
-    res.render('staff/dashboard', {
+    res.render("staff/dashboard", {
       pendingOrders,
       ordersToday,
       pendingBookings,
-      upcomingEvents,
-      depositsToConfirm,
-      bookStock: bookStockResult[0]?.total || 0
+      bookStock: bookStockResult[0]?.total || 0,
+      drinkStock: drinkStockResult[0]?.total || 0,
+      snackStock: snackStockResult[0]?.total || 0
     });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Database error');
+    res.status(500).send("Database error");
   }
 });
 
-// PRODUCTS - synced with customer backend collection "products"
-
-// BOOKS
+// =========================
+// PRODUCTS - BOOKS
+// =========================
 
 router.get("/books", async (req, res) => {
   try {
@@ -235,19 +362,16 @@ router.post("/books/add", uploadProductImage.single("image"), async (req, res) =
   try {
     const { name, author, publisher, price, stock, status } = req.body;
 
-    const imageUrl = getProductImageUrl(req);
-    const finalStatus = normalizeProductStatus(status, stock);
-
     await Product.create({
       name,
       slug: makeSlug(name),
       type: "book",
       category: "Book",
       price: Number(price) || 0,
-      imageUrl,
+      imageUrl: getProductImageUrl(req),
       description: "",
       stock: Number(stock) || 0,
-      status: finalStatus,
+      status: normalizeProductStatus(status, stock),
       isBestSeller: false,
       isActive: true,
       author: author || "",
@@ -319,7 +443,9 @@ router.post("/books/:id/delete", async (req, res) => {
   }
 });
 
-// DRINKS
+// =========================
+// PRODUCTS - DRINKS
+// =========================
 
 router.get("/drinks", async (req, res) => {
   try {
@@ -347,19 +473,16 @@ router.post("/drinks/add", uploadProductImage.single("image"), async (req, res) 
   try {
     const { name, category, price, stock, status } = req.body;
 
-    const imageUrl = getProductImageUrl(req);
-    const finalStatus = normalizeProductStatus(status, stock);
-
     await Product.create({
       name,
       slug: makeSlug(name),
       type: "drink",
       category: category || "Drink",
       price: Number(price) || 0,
-      imageUrl,
+      imageUrl: getProductImageUrl(req),
       description: "",
       stock: Number(stock) || 0,
-      status: finalStatus,
+      status: normalizeProductStatus(status, stock),
       isBestSeller: false,
       isActive: true,
       author: "",
@@ -429,7 +552,9 @@ router.post("/drinks/:id/delete", async (req, res) => {
   }
 });
 
-// SNACKS
+// =========================
+// PRODUCTS - SNACKS
+// =========================
 
 router.get("/snacks", async (req, res) => {
   try {
@@ -457,19 +582,16 @@ router.post("/snacks/add", uploadProductImage.single("image"), async (req, res) 
   try {
     const { name, price, stock, status } = req.body;
 
-    const imageUrl = getProductImageUrl(req);
-    const finalStatus = normalizeProductStatus(status, stock);
-
     await Product.create({
       name,
       slug: makeSlug(name),
       type: "snack",
       category: "Snack",
       price: Number(price) || 0,
-      imageUrl,
+      imageUrl: getProductImageUrl(req),
       description: "",
       stock: Number(stock) || 0,
-      status: finalStatus,
+      status: normalizeProductStatus(status, stock),
       isBestSeller: false,
       isActive: true,
       author: "",
@@ -539,7 +661,9 @@ router.post("/snacks/:id/delete", async (req, res) => {
   }
 });
 
-//  ORDERS - synced with customer backend collection "orders"
+// =========================
+// ORDERS
+// =========================
 
 router.get("/orders", async (req, res) => {
   try {
@@ -604,39 +728,83 @@ router.post("/orders/add", async (req, res) => {
       const product = await Product.findById(productIds[i]);
       const quantity = parseInt(productQtys[i]) || 1;
 
-      if (product && quantity > 0) {
-        items.push({
-          productId: product._id,
-          name: product.name,
-          type: product.type,
-          price: product.price,
-          quantity,
-          imageUrl: product.imageUrl || ""
-        });
+      if (!product || quantity <= 0) continue;
 
-        totalAmount += product.price * quantity;
+      if (Number(product.stock || 0) < quantity) {
+        return res.status(400).send(
+          `Sản phẩm "${product.name}" không đủ tồn kho. Hiện còn ${product.stock || 0}.`
+        );
       }
+
+      items.push({
+        productId: product._id,
+        name: product.name,
+        type: product.type,
+        price: product.price,
+        quantity,
+        imageUrl: product.imageUrl || ""
+      });
+
+      totalAmount += product.price * quantity;
     }
 
     if (items.length === 0) {
       return res.status(400).send("Vui lòng chọn ít nhất một sản phẩm");
     }
 
-    await Order.create({
-      customerName: customerName || "Khách tại quầy",
+    const loyalUser = await findUserForOrder(phone);
+
+    const finalStatus = status || "pending";
+    const isCompleted = finalStatus === "completed";
+
+    const finalPaymentStatus = isCompleted
+      ? "paid"
+      : paymentStatus || (paymentMethod === "cash" ? "unpaid" : "paid");
+
+    const order = await Order.create({
+      customerId: loyalUser ? loyalUser._id : null,
+      customerName: loyalUser
+        ? loyalUser.fullName || customerName || "Khách hàng thân thiết"
+        : customerName || "Khách tại quầy",
       phone: phone || "Không có",
-      email: email || "",
+      email: loyalUser ? loyalUser.email || email || "" : email || "",
       items,
-      customerType: "regular",
+      customerType: loyalUser ? "loyal" : "regular",
       totalAmount,
       orderType: orderType || "takeaway",
       paymentMethod: paymentMethod || "cash",
-      paymentStatus:
-        paymentStatus || (paymentMethod === "cash" ? "unpaid" : "paid"),
-      status: status || "pending",
+      paymentStatus: finalPaymentStatus,
+      status: finalStatus,
       isSeenByStaff: true,
+      stockDeducted: false,
+      loyaltyPointsAwarded: false,
+      earnedPoints: 0,
       note: note || ""
     });
+
+    const updateData = {};
+
+    if (isCompleted) {
+      await deductStockForItems(order.items);
+      updateData.stockDeducted = true;
+      updateData.paymentStatus = "paid";
+
+      if (loyalUser) {
+        const loyaltyResult = await addLoyaltyPointsToUser(
+          loyalUser,
+          order.totalAmount
+        );
+
+        if (loyaltyResult) {
+          updateData.loyaltyPointsAwarded = true;
+          updateData.earnedPoints = loyaltyResult.earnedPoints;
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await Order.findByIdAndUpdate(order._id, updateData);
+    }
 
     res.redirect("/staff/orders");
   } catch (err) {
@@ -685,6 +853,19 @@ router.post("/orders/:id/status", async (req, res) => {
       updateData.paymentStatus = "paid";
     }
 
+    // Trừ tồn kho khi đơn được hoàn thành
+    // Chỉ trừ 1 lần nhờ stockDeducted
+    if (
+      newStatus === "completed" &&
+      oldOrder.status !== "completed" &&
+      oldOrder.stockDeducted !== true
+    ) {
+      await deductStockForOrder(oldOrder);
+      updateData.stockDeducted = true;
+    }
+
+    // Cộng điểm khách hàng thân thiết khi đơn hoàn thành
+    // Chỉ cộng 1 lần nhờ loyaltyPointsAwarded
     if (
       newStatus === "completed" &&
       oldOrder.status !== "completed" &&
@@ -715,7 +896,9 @@ router.post("/orders/:id/status", async (req, res) => {
   }
 });
 
-//  BOOKINGS - synced with customer backend collection "bookingspaces"
+// =========================
+// BOOKINGS
+// =========================
 
 router.get("/bookings", async (req, res) => {
   try {
@@ -739,8 +922,21 @@ router.get("/bookings", async (req, res) => {
   }
 });
 
-router.get("/bookings/add", (req, res) => {
-  res.render("staff/bookings/booking-form");
+router.get("/bookings/add", async (req, res) => {
+  try {
+    const products = await Product.find({
+      type: { $in: ["drink", "snack"] },
+      isActive: true,
+      status: { $ne: "hidden" }
+    }).sort({ type: 1, name: 1 });
+
+    res.render("staff/bookings/booking-form", {
+      products
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database error");
+  }
 });
 
 router.post("/bookings/add", async (req, res) => {
@@ -759,26 +955,101 @@ router.post("/bookings/add", async (req, res) => {
       status
     } = req.body;
 
-    const spaceFee = Number(participantCount || 0) * 20000;
+    const productIds = [].concat(req.body.product_id || []);
+    const productQtys = [].concat(req.body.product_qty || []);
 
-    await BookingSpace.create({
-      customerName: customerName || "Khách tại quầy",
+    const selectedMenu = [];
+    let menuTotal = 0;
+
+    for (let i = 0; i < productIds.length; i++) {
+      if (!productIds[i]) continue;
+
+      const product = await Product.findById(productIds[i]);
+      const quantity = parseInt(productQtys[i]) || 1;
+
+      if (!product || quantity <= 0) continue;
+
+      if (Number(product.stock || 0) < quantity) {
+        return res.status(400).send(
+          `Sản phẩm "${product.name}" không đủ tồn kho. Hiện còn ${product.stock || 0}.`
+        );
+      }
+
+      selectedMenu.push({
+        productId: product._id,
+        name: product.name,
+        type: product.type,
+        price: product.price,
+        quantity,
+        imageUrl: product.imageUrl || ""
+      });
+
+      menuTotal += product.price * quantity;
+    }
+
+    const spaceFee = Number(participantCount || 0) * 20000;
+    const estimatedTotal = spaceFee + menuTotal;
+
+    const finalStatus = status || "pending";
+    const isConfirmed = finalStatus === "confirmed";
+
+    const loyalUser = await findUserForOrder(phone);
+
+    const booking = await BookingSpace.create({
+      customerId: loyalUser ? loyalUser._id : null,
+      customerName: loyalUser
+        ? loyalUser.fullName || customerName || "Khách hàng thân thiết"
+        : customerName || "Khách tại quầy",
       phone: phone || "Không có",
-      email: email || "staff-created@livrecafe.local",
+      email: loyalUser ? loyalUser.email || email || "" : email || "staff-created@livrecafe.local",
       eventName: eventName || "Đặt chỗ làm việc",
       eventType: eventType || "study",
       eventDate,
       eventTime,
       participantCount: Number(participantCount) || 1,
       duration: duration || "1",
-      selectedMenu: [],
+      selectedMenu,
       spaceFee,
-      menuTotal: 0,
-      estimatedTotal: spaceFee,
-      status: status || "pending",
+      menuTotal,
+      estimatedTotal,
+      paymentStatus: isConfirmed ? "paid" : "unpaid",
+      status: finalStatus,
       isSeenByStaff: true,
+      stockDeducted: false,
+      loyaltyPointsAwarded: false,
+      earnedPoints: 0,
       note: note || ""
     });
+
+    const updateData = {};
+
+    if (isConfirmed) {
+      if (selectedMenu.length > 0) {
+        await deductStockForItems(booking.selectedMenu);
+        updateData.stockDeducted = true;
+      }
+
+      updateData.paymentStatus = "paid";
+
+      const user = loyalUser || (await findUserForBooking(booking));
+
+      if (user) {
+        const loyaltyResult = await addLoyaltyPointsToUser(
+          user,
+          booking.estimatedTotal
+        );
+
+        if (loyaltyResult) {
+          updateData.customerId = loyaltyResult.userId;
+          updateData.loyaltyPointsAwarded = true;
+          updateData.earnedPoints = loyaltyResult.earnedPoints;
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await BookingSpace.findByIdAndUpdate(booking._id, updateData);
+    }
 
     res.redirect("/staff/bookings");
   } catch (err) {
@@ -837,93 +1108,9 @@ router.post("/bookings/:id/status", async (req, res) => {
   }
 });
 
-//  events
-
-router.get('/events', async (req, res) => {
-  try {
-    const { status } = req.query;
-    const filter = status && status !== 'all' ? { registration_status: status } : {};
-    const events = await EventRegistration.find(filter).sort({ event_date: 1 });
-    res.render('staff/events/list', { events, currentStatus: status || 'all' });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.get('/events/add', async (req, res) => {
-  try {
-    const drinks = await DrinkProduct.find({ status: 'available' }).sort({ drink_name: 1 });
-    const snacks = await SnackProduct.find({ status: 'available' }).sort({ snack_name: 1 });
-    res.render('staff/events/event-form', { drinks, snacks });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.post('/events/add', async (req, res) => {
-  try {
-    const { event_name, event_date, start_time, end_time, participant_count, registration_status } = req.body;
-    const drinkIds  = [].concat(req.body.drink_id  || []);
-    const drinkQtys = [].concat(req.body.drink_qty || []);
-    const snackIds  = [].concat(req.body.snack_id  || []);
-    const snackQtys = [].concat(req.body.snack_qty || []);
-
-    const event = await EventRegistration.create({
-      event_name, event_date, start_time, end_time,
-      participant_count, registration_status, quotation_amount: 0
-    });
-    let total = 0;
-
-    for (let i = 0; i < drinkIds.length; i++) {
-      if (!drinkIds[i]) continue;
-      const drink = await DrinkProduct.findById(drinkIds[i]);
-      const qty   = parseInt(drinkQtys[i]) || 1;
-      if (drink) {
-        await EventDrinkItem.create({ event_registration_id: event._id, drink_id: drink._id, quantity: qty, unit_price: drink.price });
-        total += drink.price * qty;
-      }
-    }
-    for (let i = 0; i < snackIds.length; i++) {
-      if (!snackIds[i]) continue;
-      const snack = await SnackProduct.findById(snackIds[i]);
-      const qty   = parseInt(snackQtys[i]) || 1;
-      if (snack) {
-        await EventSnackItem.create({ event_registration_id: event._id, snack_id: snack._id, quantity: qty, unit_price: snack.price });
-        total += snack.price * qty;
-      }
-    }
-    await EventRegistration.findByIdAndUpdate(event._id, { quotation_amount: total });
-    res.redirect('/staff/events');
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.get('/events/:id', async (req, res) => {
-  try {
-    const event = await EventRegistration.findById(req.params.id);
-    if (!event) return res.status(404).send('Event not found');
-    const deposit    = await Deposit.findOne({ event_registration_id: req.params.id });
-    const drinkItems = await EventDrinkItem.find({ event_registration_id: req.params.id }).populate('drink_id');
-    const snackItems = await EventSnackItem.find({ event_registration_id: req.params.id }).populate('snack_id');
-    res.render('staff/events/detail', { event, deposit, drinkItems, snackItems });
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.post('/events/:id/status', async (req, res) => {
-  try {
-    await EventRegistration.findByIdAndUpdate(req.params.id, { registration_status: req.body.registration_status });
-    res.redirect(`/staff/events/${req.params.id}`);
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-router.post('/events/:id/confirm-deposit', async (req, res) => {
-  try {
-    await Deposit.findOneAndUpdate(
-      { event_registration_id: req.params.id },
-      { deposit_status: 'confirmed', deposit_date: new Date() }
-    );
-    await EventRegistration.findByIdAndUpdate(req.params.id, { registration_status: 'confirmed' });
-    res.redirect(`/staff/events/${req.params.id}`);
-  } catch (err) { console.error(err); res.status(500).send('Database error'); }
-});
-
-
-//  customers
+// =========================
+// CUSTOMERS
+// =========================
 
 router.get("/customers", async (req, res) => {
   try {

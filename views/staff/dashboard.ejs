@@ -1,74 +1,66 @@
 <%- include('../partials/staff-header') %>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <div>
-    <h4 class="mb-1">Tổng quan</h4>
-    <p class="text-muted mb-0" style="font-size:0.9rem">
-      <%= new Date().toLocaleDateString('vi-VN', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) %>
-    </p>
+<div class="dashboard-header">
+  <h1>Tổng quan</h1>
+  <p>
+    <%= new Date().toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }) %>
+  </p>
+</div>
+
+<div class="dashboard-grid">
+  <div class="dashboard-card">
+    <h3>Đơn hàng chờ xử lý</h3>
+    <div class="dashboard-number"><%= pendingOrders || 0 %></div>
+    <a href="/staff/orders?status=pending">Xem đơn hàng →</a>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Đơn hàng hôm nay</h3>
+    <div class="dashboard-number"><%= ordersToday || 0 %></div>
+    <a href="/staff/orders">Xem tất cả →</a>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Đặt chỗ chờ xác nhận</h3>
+    <div class="dashboard-number"><%= pendingBookings || 0 %></div>
+    <a href="/staff/bookings?status=pending">Xem đặt chỗ →</a>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Sách trong kho</h3>
+    <div class="dashboard-number"><%= bookStock || 0 %></div>
+    <a href="/staff/books">Xem sách →</a>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Đồ uống còn</h3>
+    <div class="dashboard-number"><%= drinkStock || 0 %></div>
+    <a href="/staff/drinks">Xem đồ uống →</a>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Đồ ăn còn</h3>
+    <div class="dashboard-number"><%= snackStock || 0 %></div>
+    <a href="/staff/snacks">Xem đồ ăn →</a>
   </div>
 </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-md-4">
-    <div class="stat-card">
-      <div class="stat-label">Đơn hàng chờ xử lý</div>
-      <div class="stat-number"><%= pendingOrders %></div>
-      <a href="/staff/orders?status=pending" class="stat-link">Xem đơn hàng →</a>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stat-card">
-      <div class="stat-label">Đơn hàng hôm nay</div>
-      <div class="stat-number"><%= ordersToday %></div>
-      <a href="/staff/orders" class="stat-link">Xem tất cả →</a>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stat-card urgent">
-      <div class="stat-label">Tiền cọc cần xác nhận</div>
-      <div class="stat-number"><%= depositsToConfirm %></div>
-      <a href="/staff/events?status=pending" class="stat-link">Xem sự kiện →</a>
-      <% if (depositsToConfirm > 0) { %>
-        <span class="badge ms-2" style="background:var(--yellow);color:var(--brown);font-size:10px">Cần xử lý</span>
-      <% } %>
-    </div>
-  </div>
-</div>
+<hr>
 
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="stat-card">
-      <div class="stat-label">Đặt chỗ chờ xác nhận</div>
-      <div class="stat-number"><%= pendingBookings %></div>
-      <a href="/staff/bookings?status=pending" class="stat-link">Xem đặt chỗ →</a>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stat-card">
-      <div class="stat-label">Sự kiện sắp tới</div>
-      <div class="stat-number"><%= upcomingEvents %></div>
-      <a href="/staff/events" class="stat-link">Xem sự kiện →</a>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stat-card">
-      <div class="stat-label">Sách trong kho</div>
-      <div class="stat-number"><%= bookStock %></div>
-      <a href="/staff/books" class="stat-link">Xem sách →</a>
-    </div>
-  </div>
-</div>
+<div class="quick-actions">
+  <h3>Thao tác nhanh</h3>
 
-<div style="border-top: 1px solid var(--border); padding-top: 1.25rem">
-  <p class="stat-label mb-2">Thao tác nhanh</p>
-  <div class="d-flex flex-wrap gap-2">
-    <a href="/staff/books/add"  class="quick-link">+ Thêm sách</a>
-    <a href="/staff/drinks/add" class="quick-link">+ Thêm đồ uống</a>
-    <a href="/staff/snacks/add" class="quick-link">+ Thêm đồ ăn</a>
-    <a href="/staff/orders"     class="quick-link">Tất cả đơn hàng</a>
-    <a href="/staff/bookings"   class="quick-link">Tất cả đặt chỗ</a>
-    <a href="/staff/events"     class="quick-link">Tất cả sự kiện</a>
+  <div class="quick-action-buttons">
+    <a href="/staff/books/add" class="btn btn-outline-primary">+ Thêm sách</a>
+    <a href="/staff/drinks/add" class="btn btn-outline-primary">+ Thêm đồ uống</a>
+    <a href="/staff/snacks/add" class="btn btn-outline-primary">+ Thêm đồ ăn</a>
+    <a href="/staff/orders" class="btn btn-outline-primary">Tất cả đơn hàng</a>
+    <a href="/staff/bookings" class="btn btn-outline-primary">Tất cả đặt chỗ</a>
   </div>
 </div>
 

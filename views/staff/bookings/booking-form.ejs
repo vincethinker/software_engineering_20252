@@ -69,7 +69,11 @@
       <select name="status" class="form-select">
         <option value="pending">Chờ xác nhận</option>
         <option value="confirmed">Đã xác nhận</option>
+        <option value="cancelled">Đã hủy</option>
       </select>
+      <div class="form-text">
+        Nếu chọn “Đã xác nhận”, hệ thống sẽ tự thanh toán, trừ kho và cộng điểm nếu là khách hàng thân thiết.
+      </div>
     </div>
 
     <div class="col-md-12 mb-4">
@@ -78,10 +82,111 @@
     </div>
   </div>
 
+  <hr>
+
+  <div class="mb-3">
+    <h5 class="mb-1">Thực đơn đi kèm</h5>
+    <div class="text-muted small">
+      Có thể chọn đồ uống / đồ ăn đi kèm đặt chỗ. Nếu không chọn, đặt chỗ chỉ tính phí không gian.
+    </div>
+  </div>
+
+  <div id="booking-product-list">
+    <div class="row g-2 mb-2 booking-product-row">
+      <div class="col-md-8">
+        <label class="form-label">Sản phẩm</label>
+        <select name="product_id" class="form-select">
+          <option value="">-- Chọn sản phẩm --</option>
+
+          <% if (typeof products !== 'undefined' && products && products.length > 0) { %>
+            <% products.forEach(product => { %>
+              <option
+                value="<%= product._id %>"
+                <%= Number(product.stock || 0) <= 0 ? 'disabled' : '' %>
+              >
+                <%= product.type === 'drink' ? '[Đồ uống]' : '[Đồ ăn]' %>
+                <%= product.name %>
+                -
+                <%= Number(product.price || 0).toLocaleString('vi-VN') %>đ
+                -
+                còn <%= product.stock || 0 %>
+                <%= Number(product.stock || 0) <= 0 ? ' - Hết hàng' : '' %>
+              </option>
+            <% }) %>
+          <% } %>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Số lượng</label>
+        <input type="number" name="product_qty" class="form-control" min="1" value="1">
+      </div>
+
+      <div class="col-md-1 d-flex align-items-end">
+        <button type="button" class="btn btn-outline-danger remove-booking-product-row">×</button>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="btn btn-outline-primary w-100 mb-4" id="add-booking-product-row">
+    + Thêm sản phẩm
+  </button>
+
   <div class="d-flex gap-2">
     <button type="submit" class="btn btn-primary">Tạo đặt chỗ</button>
     <a href="/staff/bookings" class="btn btn-outline-secondary">Hủy</a>
   </div>
 </form>
+
+<script>
+  const bookingProductList = document.getElementById("booking-product-list");
+  const addBookingProductRowButton = document.getElementById("add-booking-product-row");
+
+  if (bookingProductList && addBookingProductRowButton) {
+    addBookingProductRowButton.addEventListener("click", function () {
+      const firstRow = bookingProductList.querySelector(".booking-product-row");
+
+      if (!firstRow) return;
+
+      const newRow = firstRow.cloneNode(true);
+
+      const select = newRow.querySelector("select");
+      const input = newRow.querySelector("input");
+
+      if (select) select.value = "";
+      if (input) input.value = "1";
+
+      bookingProductList.appendChild(newRow);
+    });
+
+    bookingProductList.addEventListener("click", function (event) {
+      if (!event.target.classList.contains("remove-booking-product-row")) {
+        return;
+      }
+
+      const rows = bookingProductList.querySelectorAll(".booking-product-row");
+
+      if (rows.length <= 1) {
+        const row = event.target.closest(".booking-product-row");
+
+        if (row) {
+          const select = row.querySelector("select");
+          const input = row.querySelector("input");
+
+          if (select) select.value = "";
+          if (input) input.value = "1";
+        }
+
+        return;
+      }
+
+      const row = event.target.closest(".booking-product-row");
+
+      if (row) {
+        row.remove();
+      }
+    });
+  }
+</script>
 
 <%- include('../../partials/staff-footer') %>

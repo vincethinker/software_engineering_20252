@@ -110,6 +110,11 @@ const orderSchema = new mongoose.Schema(
   default: 0
     },
 
+    stockDeducted: {
+  type: Boolean,
+  default: false
+    },
+
     note: {
       type: String,
       default: ""
