@@ -1782,4 +1782,18 @@ button:disabled {
   .booking-submit-row {
     grid-column: 1;
   }
+
+  .booking-remove-menu-btn {
+  border: none;
+  background: #b44002;
+  color: #ffffff;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.booking-remove-menu-btn:hover {
+  opacity: 0.9;
+}
 }

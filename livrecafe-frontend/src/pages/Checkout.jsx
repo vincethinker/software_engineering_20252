@@ -24,14 +24,59 @@ function Checkout() {
     return price.toLocaleString("vi-VN") + " đ";
   };
 
-  const handlePayment = () => {
-    if (cartItems.length === 0) {
-      alert("Giỏ hàng đang trống");
+  const handlePayment = async () => {
+  if (cartItems.length === 0) {
+    alert("Giỏ hàng đang trống");
+    return;
+  }
+
+  try {
+    const savedUser = localStorage.getItem("livrecafe_user");
+    const user = savedUser ? JSON.parse(savedUser) : null;
+
+    const orderData = {
+      customerId: user?.id || null,
+      customerName: user?.fullName || "Khách hàng",
+      phone: user?.phone || "Chưa có số điện thoại",
+      email: user?.email || "",
+
+      items: cartItems.map((item) => ({
+        productId: item._id,
+        name: item.name,
+        type: item.type,
+        price: item.price,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl || ""
+      })),
+
+      totalAmount,
+      orderType: "takeaway",
+      paymentMethod,
+      note: ""
+    };
+
+    const response = await fetch("http://localhost:3000/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(orderData)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.log("Tạo đơn hàng thất bại:", data);
+      alert(data.message || "Tạo đơn hàng thất bại");
       return;
     }
 
     clearCart();
     navigate("/thanh-toan-thanh-cong");
+  } catch (error) {
+    console.error("Không thể tạo đơn hàng:", error);
+    alert("Không thể kết nối server");
+  }
   };
 
   return (

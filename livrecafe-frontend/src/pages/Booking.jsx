@@ -4,34 +4,51 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
+const BOOKING_FORM_KEY = "livrecafe_booking_form";
+const BOOKING_MENU_KEY = "livrecafe_booking_menu";
+
 function Booking() {
   const navigate = useNavigate();
 
   const [selectedMenu, setSelectedMenu] = useState([]);
 
-  const [formData, setFormData] = useState({
-    customerName: "",
-    phone: "",
-    email: "",
-    eventName: "",
-    eventType: "",
-    eventDate: "",
-    eventTime: "",
-    participantCount: "",
-    duration: "",
-    note: ""
+  const [formData, setFormData] = useState(() => {
+    const savedForm = localStorage.getItem(BOOKING_FORM_KEY);
+
+    if (savedForm) {
+      return JSON.parse(savedForm);
+    }
+
+    return {
+      customerName: "",
+      phone: "",
+      email: "",
+      eventName: "",
+      eventType: "",
+      eventDate: "",
+      eventTime: "",
+      participantCount: "",
+      duration: "",
+      note: ""
+    };
   });
 
   useEffect(() => {
-    const savedMenu = localStorage.getItem("livrecafe_booking_menu");
+    const savedMenu = localStorage.getItem(BOOKING_MENU_KEY);
 
     if (savedMenu) {
       setSelectedMenu(JSON.parse(savedMenu));
+    } else {
+      setSelectedMenu([]);
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem(BOOKING_FORM_KEY, JSON.stringify(formData));
+  }, [formData]);
+
   const formatPrice = (price) => {
-    return price.toLocaleString("vi-VN") + " đ";
+    return Number(price || 0).toLocaleString("vi-VN") + " đ";
   };
 
   const menuTotal = selectedMenu.reduce((sum, item) => {
@@ -54,7 +71,15 @@ function Booking() {
   };
 
   const goToMenuSelect = () => {
+    localStorage.setItem(BOOKING_FORM_KEY, JSON.stringify(formData));
     navigate("/dat-cho/chon-thuc-don");
+  };
+
+  const removeMenuItem = (productId) => {
+    const newMenu = selectedMenu.filter((item) => item._id !== productId);
+
+    setSelectedMenu(newMenu);
+    localStorage.setItem(BOOKING_MENU_KEY, JSON.stringify(newMenu));
   };
 
   const validateForm = () => {
@@ -66,10 +91,13 @@ function Booking() {
     if (!formData.eventDate) return "Vui lòng chọn ngày tổ chức";
     if (!formData.eventTime) return "Vui lòng chọn giờ tổ chức";
     if (!formData.participantCount) return "Vui lòng nhập số người tham gia";
+
     if (Number(formData.participantCount) <= 0) {
       return "Số người tham gia phải lớn hơn 0";
     }
+
     if (!formData.duration) return "Vui lòng chọn thời lượng sử dụng";
+
     if (selectedMenu.length === 0) {
       return "Vui lòng chọn ít nhất một món đồ ăn hoặc đồ uống";
     }
@@ -77,34 +105,54 @@ function Booking() {
     return "";
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  const handleSubmit = async (event) => {
+  event.preventDefault();
 
-    const errorMessage = validateForm();
+  const errorMessage = validateForm();
 
-    if (errorMessage) {
-      alert(errorMessage);
+  if (errorMessage) {
+    alert(errorMessage);
+    return;
+  }
+
+  const bookingData = {
+    ...formData,
+    selectedMenu,
+    spaceFee,
+    menuTotal,
+    estimatedTotal,
+    status: "pending"
+  };
+
+  try {
+    const response = await fetch("http://localhost:3000/api/bookings-space", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(bookingData)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.log("Đặt chỗ thất bại:", data);
+      alert(data.message || "Đặt chỗ thất bại");
       return;
     }
-
-    const bookingData = {
-      ...formData,
-      selectedMenu,
-      spaceFee,
-      menuTotal,
-      estimatedTotal,
-      status: "pending"
-    };
-
-    console.log("Booking data:", bookingData);
 
     alert(
       "Đặt chỗ thành công. Cửa hàng sẽ liên hệ lại để trao đổi và xác nhận đặt cọc."
     );
 
-    localStorage.removeItem("livrecafe_booking_menu");
+    localStorage.removeItem(BOOKING_FORM_KEY);
+    localStorage.removeItem(BOOKING_MENU_KEY);
 
     navigate("/");
+  } catch (error) {
+    console.error("Không thể gửi đặt chỗ:", error);
+    alert("Không thể kết nối server");
+  }
   };
 
   return (
@@ -117,7 +165,6 @@ function Booking() {
         </div>
 
         <div className="booking-layout">
-
           <section className="booking-form-card">
             <h1>Đăng ký đặt chỗ / tổ chức sự kiện</h1>
 
@@ -260,6 +307,7 @@ function Booking() {
                         <th>Số lượng</th>
                         <th>Đơn giá</th>
                         <th>Thành tiền</th>
+                        <th></th>
                       </tr>
                     </thead>
 
@@ -267,10 +315,25 @@ function Booking() {
                       {selectedMenu.map((item) => (
                         <tr key={item._id}>
                           <td>{item.name}</td>
-                          <td>{item.type === "drink" ? "Đồ uống" : "Đồ ăn"}</td>
+                          <td>
+                            {item.type === "drink"
+                              ? "Đồ uống"
+                              : item.type === "snack"
+                              ? "Đồ ăn"
+                              : "Sách"}
+                          </td>
                           <td>{item.quantity}</td>
                           <td>{formatPrice(item.price)}</td>
                           <td>{formatPrice(item.price * item.quantity)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="booking-remove-menu-btn"
+                              onClick={() => removeMenuItem(item._id)}
+                            >
+                              Xóa
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
