@@ -80,6 +80,10 @@ const userSchema = new mongoose.Schema(
   type: String,
   default: ""
     },
+    isLoyalMember: {
+    type: Boolean,
+    default: false
+    },
   },
   {
     timestamps: true

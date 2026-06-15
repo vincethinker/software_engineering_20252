@@ -9,8 +9,10 @@ const { Server } = require("socket.io");
 
 const productRoutes = require("./routes/productRoutes");
 const authRoutes = require("./routes/authRoutes");
-const bookingSpaceRoutes = require("./routes/bookingSpaceRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const bookingSpaceRoutes = require("./routes/bookingSpaceRoutes");
+const adminRoutes = require("./routes/adminRoutes"); 
+const { router: loyaltyRoutes } = require("./routes/loyaltyRoutes");
 
 const app = express();
 const server = http.createServer(app);

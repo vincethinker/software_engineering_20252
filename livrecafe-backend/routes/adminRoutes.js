@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const Order = require("../models/Order");
+const Order = require("../models/Orders");
 const Product = require("../models/Product");
 const User = require("../models/User");
-const Booking = require("../models/Booking");
+const BookingSpace = require("../models/BookingSpace");
+const MembershipTier = require("../models/MembershipTier");
+const Promotion = require("../models/Promotion");
 
 const { verifyToken, requireRole } = require("../middleware/auth");
 
@@ -131,6 +133,15 @@ router.get("/bookings", async (req, res) => {
 });
 
 // Cập nhật trạng thái booking
+router.get("/bookings", async (req, res) => {
+    try {
+        const bookings = await BookingSpace.find().sort({ createdAt: -1 });
+        res.json(bookings);
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi lấy danh sách đặt chỗ", error: error.message });
+    }
+});
+
 router.patch("/bookings/:id/status", async (req, res) => {
     try {
         const { status } = req.body;
@@ -138,9 +149,9 @@ router.patch("/bookings/:id/status", async (req, res) => {
         if (!allowed.includes(status)) {
             return res.status(400).json({ message: "Trạng thái không hợp lệ" });
         }
-        const booking = await Booking.findByIdAndUpdate(
+        const booking = await BookingSpace.findByIdAndUpdate(
             req.params.id,
-            { status },
+            { status, isSeenByStaff: true }, 
             { new: true }
         );
         if (!booking) return res.status(404).json({ message: "Không tìm thấy đặt chỗ" });
@@ -149,5 +160,81 @@ router.patch("/bookings/:id/status", async (req, res) => {
         res.status(500).json({ message: "Lỗi cập nhật trạng thái", error: error.message });
     }
 });
-
+// xem tier
+router.get("/tiers", async (req, res) => {
+    try {
+        const tiers = await MembershipTier.find().sort({ requiredPoints: 1 });
+        res.json(tiers);
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi lấy danh sách tier", error: error.message });
+    }
+});
+// Thêm tier mới
+router.post("/tiers", async (req, res) => {
+    try {
+        const tier = await MembershipTier.create(req.body);
+        res.status(201).json({ message: "Thêm tier thành công", tier });
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi thêm tier", error: error.message });
+    }
+});
+// Sửa tier
+router.patch("/tiers/:id", async (req, res) => {
+    try {
+        const tier = await MembershipTier.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        if (!tier) return res.status(404).json({ message: "Không tìm thấy tier" });
+        res.json({ message: "Cập nhật tier thành công", tier });
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi cập nhật tier", error: error.message });
+    }
+});
+// Xem tất cả promotion
+router.get("/promotions", async (req, res) => {
+    try {
+        const promotions = await Promotion.find()
+            .populate("tierId", "tierName")
+            .sort({ createdAt: -1 });
+        res.json(promotions);
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi lấy danh sách ưu đãi", error: error.message });
+    }
+});
+// Thêm promotion
+router.post("/promotions", async (req, res) => {
+    try {
+        const promotion = await Promotion.create(req.body);
+        res.status(201).json({ message: "Thêm ưu đãi thành công", promotion });
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi thêm ưu đãi", error: error.message });
+    }
+});
+// Sửa promotion
+router.patch("/promotions/:id", async (req, res) => {
+    try {
+        const promotion = await Promotion.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        if (!promotion) return res.status(404).json({ message: "Không tìm thấy ưu đãi" });
+        res.json({ message: "Cập nhật ưu đãi thành công", promotion });
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi cập nhật ưu đãi", error: error.message });
+    }
+});
+// Xem loyal members
+router.get("/loyal-members", async (req, res) => {
+    try {
+        const members = await User.find({ isLoyalMember: true })
+            .select("-passwordHash")
+            .sort({ points: -1 });
+        res.json(members);
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi lấy danh sách thành viên", error: error.message });
+    }
+});
 module.exports = router;
