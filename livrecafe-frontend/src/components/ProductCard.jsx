@@ -7,10 +7,15 @@ function ProductCard({ product }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
-  const isOutOfStock = product.status === "out_of_stock" || product.stock <= 0;
+  const stock = Number(product.stock || 0);
+
+  const isOutOfStock =
+    product.status === "out_of_stock" ||
+    product.status === "unavailable" ||
+    stock <= 0;
 
   const formatPrice = (price) => {
-    return price.toLocaleString("vi-VN") + " đ";
+    return Number(price || 0).toLocaleString("vi-VN") + " đ";
   };
 
   const imageSource = product.imageUrl
@@ -29,7 +34,10 @@ function ProductCard({ product }) {
   };
 
   const increaseQuantity = () => {
-    setQuantity((prev) => prev + 1);
+    setQuantity((prev) => {
+      if (prev >= stock) return stock;
+      return prev + 1;
+    });
   };
 
   const decreaseQuantity = () => {
@@ -40,18 +48,35 @@ function ProductCard({ product }) {
   };
 
   const handleConfirmAddToCart = () => {
+    if (isOutOfStock) {
+      alert("Sản phẩm đã hết hàng");
+      return;
+    }
+
+    if (quantity > stock) {
+      alert(`Số lượng tồn kho chỉ còn ${stock}`);
+      setQuantity(stock);
+      return;
+    }
+
     addToCart(product, quantity);
     setIsModalOpen(false);
   };
 
   return (
     <>
-      <div className="product-card">
+      <div className={`product-card ${isOutOfStock ? "product-card-disabled" : ""}`}>
         <div className="product-image-box">
           {imageSource ? (
             <img src={imageSource} alt={product.name} />
           ) : (
             <span className="no-image">Không có ảnh</span>
+          )}
+
+          {isOutOfStock && (
+            <div className="product-out-of-stock-badge">
+              Hết hàng
+            </div>
           )}
         </div>
 
@@ -108,16 +133,35 @@ function ProductCard({ product }) {
                 {formatPrice(product.price)}
               </p>
 
+              <p className="product-stock-text">
+                Còn lại: {stock} sản phẩm
+              </p>
+
               <div className="quantity-control">
-                <button onClick={decreaseQuantity}>-</button>
+                <button
+                  type="button"
+                  onClick={decreaseQuantity}
+                  disabled={quantity <= 1}
+                >
+                  -
+                </button>
+
                 <span>{quantity}</span>
-                <button onClick={increaseQuantity}>+</button>
+
+                <button
+                  type="button"
+                  onClick={increaseQuantity}
+                  disabled={quantity >= stock}
+                >
+                  +
+                </button>
               </div>
             </div>
 
             <button
               className="modal-add-cart-btn"
               onClick={handleConfirmAddToCart}
+              disabled={isOutOfStock}
             >
               Thêm vào giỏ hàng:{" "}
               <span>{formatPrice(product.price * quantity)}</span>

@@ -19,14 +19,35 @@ function createToken(user) {
   );
 }
 
+function formatUser(user) {
+  return {
+    id: user._id,
+    _id: user._id,
+    fullName: user.fullName || "",
+    phone: user.phone || "",
+    email: user.email || "",
+    gender: user.gender || "",
+    identityNumber: user.identityNumber || "",
+    birthday: user.birthday || "",
+    city: user.city || "",
+    district: user.district || "",
+    ward: user.ward || "",
+    address: user.address || "",
+    role: user.role,
+    points: user.points,
+    membershipLevel: user.membershipLevel,
+    isActive: user.isActive
+  };
+}
+
 // Đăng ký
 router.post("/register", async (req, res) => {
   try {
-    const { fullName, phone, email, password } = req.body;
+    const { fullName, phone, email, identityNumber, password } = req.body;
 
-    if (!fullName || !phone || !password) {
+    if (!fullName || !phone || !identityNumber || !password) {
       return res.status(400).json({
-        message: "Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu"
+        message: "Vui lòng nhập đầy đủ họ tên, số điện thoại, CCCD và mật khẩu"
       });
     }
 
@@ -44,21 +65,17 @@ router.post("/register", async (req, res) => {
       fullName,
       phone,
       email,
+      identityNumber,
       passwordHash,
       role: "customer"
     });
 
+    const token = createToken(user);
+
     res.status(201).json({
       message: "Đăng ký thành công",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
-        points: user.points,
-        membershipLevel: user.membershipLevel
-      }
+      token,
+      user: formatUser(user)
     });
   } catch (error) {
     res.status(500).json({
@@ -106,15 +123,7 @@ router.post("/login", async (req, res) => {
     res.json({
       message: "Đăng nhập thành công",
       token,
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
-        points: user.points,
-        membershipLevel: user.membershipLevel
-      }
+      user: formatUser(user)
     });
   } catch (error) {
     res.status(500).json({
@@ -146,7 +155,7 @@ router.get("/me", async (req, res) => {
       });
     }
 
-    res.json(user);
+    res.json(formatUser(user));
   } catch (error) {
     res.status(401).json({
       message: "Token không hợp lệ"
@@ -203,6 +212,7 @@ router.patch("/profile", async (req, res) => {
 
     const {
       fullName,
+      phone,
       email,
       gender,
       identityNumber,
@@ -213,10 +223,40 @@ router.patch("/profile", async (req, res) => {
       address
     } = req.body;
 
+    if (!fullName || !String(fullName).trim()) {
+      return res.status(400).json({
+        message: "Vui lòng nhập họ tên"
+      });
+    }
+
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({
+        message: "Vui lòng nhập số điện thoại"
+      });
+    }
+
+    if (!identityNumber || !String(identityNumber).trim()) {
+      return res.status(400).json({
+        message: "Vui lòng nhập số CMND/CCCD"
+      });
+    }
+
+    const existedPhoneUser = await User.findOne({
+      phone,
+      _id: { $ne: decoded.id }
+    });
+
+    if (existedPhoneUser) {
+      return res.status(400).json({
+        message: "Số điện thoại đã được tài khoản khác sử dụng"
+      });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       decoded.id,
       {
         fullName,
+        phone,
         email,
         gender,
         identityNumber,
@@ -240,7 +280,7 @@ router.patch("/profile", async (req, res) => {
 
     res.json({
       message: "Cập nhật thông tin thành công",
-      user: updatedUser
+      user: formatUser(updatedUser)
     });
   } catch (error) {
     res.status(500).json({

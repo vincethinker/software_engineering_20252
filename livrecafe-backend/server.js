@@ -9,9 +9,8 @@ const { Server } = require("socket.io");
 
 const productRoutes = require("./routes/productRoutes");
 const authRoutes = require("./routes/authRoutes");
-const orderRoutes = require("./routes/orderRoutes");
 const bookingSpaceRoutes = require("./routes/bookingSpaceRoutes");
-const adminRoutes = require("./routes/adminRoutes"); 
+const orderRoutes = require("./routes/orderRoutes");
 const { router: loyaltyRoutes } = require("./routes/loyaltyRoutes");
 
 const app = express();
@@ -54,6 +53,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/bookings-space", bookingSpaceRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
 
 app.get("/", (req, res) => {
   res.send("LivrèCafé backend is running");

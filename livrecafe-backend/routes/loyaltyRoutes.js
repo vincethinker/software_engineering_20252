@@ -6,12 +6,18 @@ const Promotion = require("../models/Promotion");
 const { verifyToken } = require("../middleware/auth");
 
 async function updateMembershipLevel(userId, points) {
-    let level = "Bronze";
-    if (points >= 600) level = "Diamond";
-    else if (points >= 300) level = "Gold";
-    else if (points >= 100) level = "Silver";
+  let level = "Đồng";
 
-    await User.findByIdAndUpdate(userId, { membershipLevel: level });
+  if (points >= 600) level = "Kim cương";
+  else if (points >= 300) level = "Vàng";
+  else if (points >= 100) level = "Bạc";
+
+  await User.findByIdAndUpdate(userId, {
+    points,
+    membershipLevel: level
+  });
+
+  return level;
 }
 
 router.post("/register", verifyToken, async (req, res) => {
@@ -33,22 +39,29 @@ router.post("/register", verifyToken, async (req, res) => {
 });
 
 router.get("/me", verifyToken, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id).select("-passwordHash");
-        if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+  try {
+    const user = await User.findById(req.user.id).select("-passwordHash");
 
-        const tiers = await MembershipTier.find().sort({ requiredPoints: 1 });
-
-        res.json({
-            points: user.points,
-            membershipLevel: user.membershipLevel,
-            tiers
-        });
-    } catch (error) {
-        res.status(500).json({ message: "Lỗi lấy thông tin thành viên", error: error.message });
+    if (!user) {
+      return res.status(404).json({
+        message: "Không tìm thấy tài khoản"
+      });
     }
-});
 
+    const tiers = await MembershipTier.find().sort({ requiredPoints: 1 });
+
+    res.json({
+      points: user.points || 0,
+      membershipLevel: user.membershipLevel || "Đồng",
+      tiers
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Lỗi lấy thông tin thành viên",
+      error: error.message
+    });
+  }
+});
 
 router.get("/promotions", verifyToken, async (req, res) => {
     try {

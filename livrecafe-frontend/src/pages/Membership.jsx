@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AccountSidebar from "../components/AccountSidebar";
@@ -5,26 +7,127 @@ import { useAuth } from "../context/AuthContext";
 import logoLarge from "../assets/icons/logo-large.png";
 
 function Membership() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
-  const points = user?.points || 0;
+  const [points, setPoints] = useState(user?.points || 0);
+  const [membershipLevel, setMembershipLevel] = useState(
+    user?.membershipLevel || "Đồng"
+  );
+  const [tiers, setTiers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const levels = [
-    { name: "Đồng", min: 0 },
-    { name: "Bạc", min: 100 },
-    { name: "Vàng", min: 300 },
-    { name: "Kim cương", min: 600 }
+  const defaultLevels = [
+    {
+      name: "Đồng",
+      min: 0,
+      benefitDescription: "Tích điểm cơ bản."
+    },
+    {
+      name: "Bạc",
+      min: 100,
+      benefitDescription: "Giảm 5% cho đơn hàng."
+    },
+    {
+      name: "Vàng",
+      min: 300,
+      benefitDescription: "Giảm 10% và nhận ưu đãi sinh nhật."
+    },
+    {
+      name: "Kim cương",
+      min: 600,
+      benefitDescription: "Giảm 15% và ưu tiên đặt không gian."
+    }
   ];
 
-  const maxPoints = 600;
+  useEffect(() => {
+    const fetchMembershipInfo = async () => {
+      try {
+        const token = localStorage.getItem("livrecafe_token");
 
-  let currentLevel = "Đồng";
+        if (!token) {
+          setLoading(false);
+          return;
+        }
 
-  if (points >= 600) currentLevel = "Kim cương";
-  else if (points >= 300) currentLevel = "Vàng";
-  else if (points >= 100) currentLevel = "Bạc";
+        const response = await fetch("http://localhost:3000/api/loyalty/me", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
 
-  const progressPercent = Math.min((points / maxPoints) * 100, 100);
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.log("Không thể lấy thông tin thành viên:", data);
+          setLoading(false);
+          return;
+        }
+
+        const newPoints = Number(data.points || 0);
+        const newMembershipLevel = data.membershipLevel || "Đồng";
+
+        setPoints(newPoints);
+        setMembershipLevel(newMembershipLevel);
+        setTiers(Array.isArray(data.tiers) ? data.tiers : []);
+
+        const savedUser = localStorage.getItem("livrecafe_user");
+        const currentUser = savedUser ? JSON.parse(savedUser) : user || {};
+
+        const updatedUser = {
+          ...currentUser,
+          points: newPoints,
+          membershipLevel: newMembershipLevel
+        };
+
+        localStorage.setItem("livrecafe_user", JSON.stringify(updatedUser));
+
+        if (updateUser) {
+          updateUser(updatedUser);
+        }
+      } catch (error) {
+        console.error("Lỗi tải thông tin thành viên:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMembershipInfo();
+  }, []);
+
+  const levels = useMemo(() => {
+    if (!tiers || tiers.length === 0) {
+      return defaultLevels;
+    }
+
+    return tiers
+      .map((tier) => ({
+        name: tier.tierName,
+        min: Number(tier.requiredPoints || 0),
+        benefitDescription: tier.benefitDescription || ""
+      }))
+      .sort((a, b) => a.min - b.min);
+  }, [tiers]);
+
+  const maxPoints = levels.length > 0 ? levels[levels.length - 1].min : 600;
+
+  const currentLevel = useMemo(() => {
+    if (membershipLevel) {
+      return membershipLevel;
+    }
+
+    let level = "Đồng";
+
+    levels.forEach((item) => {
+      if (points >= item.min) {
+        level = item.name;
+      }
+    });
+
+    return level;
+  }, [membershipLevel, levels, points]);
+
+  const progressPercent =
+    maxPoints > 0 ? Math.min((points / maxPoints) * 100, 100) : 0;
 
   return (
     <div className="page">
@@ -49,7 +152,8 @@ function Membership() {
 
             <div className="membership-card">
               <h2>
-                Hạng thành viên: <span>{currentLevel}</span>
+                Hạng thành viên:{" "}
+                <span>{loading ? "Đang tải..." : currentLevel}</span>
               </h2>
 
               <div className="membership-progress-wrapper">
@@ -58,7 +162,11 @@ function Membership() {
                     <div
                       key={level.name}
                       className="level-label"
-                      style={{ left: `${(level.min / maxPoints) * 100}%` }}
+                      style={{
+                        left: `${
+                          maxPoints > 0 ? (level.min / maxPoints) * 100 : 0
+                        }%`
+                      }}
                     >
                       {level.name}
                     </div>
@@ -77,7 +185,11 @@ function Membership() {
                       className={`progress-marker ${
                         points >= level.min ? "active" : ""
                       }`}
-                      style={{ left: `${(level.min / maxPoints) * 100}%` }}
+                      style={{
+                        left: `${
+                          maxPoints > 0 ? (level.min / maxPoints) * 100 : 0
+                        }%`
+                      }}
                       title={`${level.name} - ${level.min} điểm`}
                     />
                   ))}
@@ -88,7 +200,11 @@ function Membership() {
                     <div
                       key={level.name}
                       className="level-point-value"
-                      style={{ left: `${(level.min / maxPoints) * 100}%` }}
+                      style={{
+                        left: `${
+                          maxPoints > 0 ? (level.min / maxPoints) * 100 : 0
+                        }%`
+                      }}
                     >
                       {level.min}
                     </div>
@@ -109,10 +225,14 @@ function Membership() {
             <div className="membership-grid">
               <div className="account-content-card">
                 <h2>Ưu đãi thành viên</h2>
-                <p>Đồng: tích điểm cơ bản.</p>
-                <p>Bạc: giảm 5% cho đơn hàng.</p>
-                <p>Vàng: giảm 10% và nhận ưu đãi sinh nhật.</p>
-                <p>Kim cương: giảm 15% và ưu tiên đặt không gian.</p>
+
+                {levels.map((level) => (
+                  <p key={level.name}>
+                    <strong>{level.name}:</strong>{" "}
+                    {level.benefitDescription ||
+                      `Đạt từ ${level.min} điểm thành viên.`}
+                  </p>
+                ))}
               </div>
 
               <div className="account-content-card">
@@ -127,28 +247,19 @@ function Membership() {
 
               <div className="account-content-card">
                 <h2>Lịch sử giao dịch</h2>
-                <p>Chưa có giao dịch tích điểm.</p>
+                <p>Điểm sẽ được cộng khi đơn hàng hoàn thành hoặc đặt chỗ được xác nhận.</p>
               </div>
 
               <div className="account-content-card">
                 <h2>Lịch sử hạng thành viên</h2>
+
                 <div className="rank-history">
-                  <div>
-                    <span>Đồng</span>
-                    <strong>0 điểm</strong>
-                  </div>
-                  <div>
-                    <span>Bạc</span>
-                    <strong>100 điểm</strong>
-                  </div>
-                  <div>
-                    <span>Vàng</span>
-                    <strong>300 điểm</strong>
-                  </div>
-                  <div>
-                    <span>Kim cương</span>
-                    <strong>600 điểm</strong>
-                  </div>
+                  {levels.map((level) => (
+                    <div key={level.name}>
+                      <span>{level.name}</span>
+                      <strong>{level.min} điểm</strong>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

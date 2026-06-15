@@ -39,7 +39,12 @@ const userSchema = new mongoose.Schema(
 
     membershipLevel: {
       type: String,
-      default: "Bronze"
+      default: "Đồng"
+    },
+
+    isLoyalMember: {
+  type: Boolean,
+  default: true
     },
 
     isActive: {
@@ -79,10 +84,6 @@ const userSchema = new mongoose.Schema(
     address: {
   type: String,
   default: ""
-    },
-    isLoyalMember: {
-    type: Boolean,
-    default: false
     },
   },
   {

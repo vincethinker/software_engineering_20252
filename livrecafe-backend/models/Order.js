@@ -63,6 +63,13 @@ const orderSchema = new mongoose.Schema(
       trim: true
     },
 
+    customerType: {
+  type: String,
+  enum: ["regular", "loyal"],
+  default: "regular"
+    },
+
+
     items: [orderItemSchema],
 
     totalAmount: {
@@ -98,6 +105,16 @@ const orderSchema = new mongoose.Schema(
     isSeenByStaff: {
       type: Boolean,
       default: false
+    },
+
+    loyaltyPointsAwarded: {
+  type: Boolean,
+  default: false
+    },
+
+    earnedPoints: {
+  type: Number,
+  default: 0
     },
 
     note: {

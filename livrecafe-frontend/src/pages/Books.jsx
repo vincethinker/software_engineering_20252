@@ -26,10 +26,6 @@ function Books() {
         <div className="menu-layout">
           <aside className="sidebar">
             <p>Tất cả</p>
-            <p>Tiểu thuyết</p>
-            <p>Kỹ năng sống</p>
-            <p>Kinh tế</p>
-            <p>Sách đọc tại quán</p>
           </aside>
 
           <section className="product-grid">

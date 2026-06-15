@@ -7,6 +7,7 @@ function Register() {
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState("");
+  const [identityNumber, setIdentityNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +18,26 @@ function Register() {
     event.preventDefault();
     setErrorMessage("");
 
+    if (!fullName.trim()) {
+      setErrorMessage("Vui lòng nhập họ và tên");
+      return;
+    }
+
+    if (!identityNumber.trim()) {
+      setErrorMessage("Vui lòng nhập số CCCD");
+      return;
+    }
+
+    if (!phone.trim()) {
+      setErrorMessage("Vui lòng nhập số điện thoại");
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage("Vui lòng nhập mật khẩu");
+      return;
+    }
+
     try {
       const response = await fetch("http://localhost:3000/api/auth/register", {
         method: "POST",
@@ -25,6 +46,7 @@ function Register() {
         },
         body: JSON.stringify({
           fullName,
+          identityNumber,
           phone,
           email,
           password
@@ -38,8 +60,16 @@ function Register() {
         return;
       }
 
-      alert("Đăng ký thành công. Vui lòng đăng nhập.");
-      navigate("/dang-nhap");
+      if (data.user) {
+        localStorage.setItem("livrecafe_user", JSON.stringify(data.user));
+      }
+
+      if (data.token) {
+        localStorage.setItem("livrecafe_token", data.token);
+      }
+
+      alert("Đăng ký thành công. Vui lòng kiểm tra thông tin cá nhân.");
+      navigate("/thong-tin-ca-nhan", { replace: true });
     } catch (error) {
       setErrorMessage("Không thể kết nối server");
     }
@@ -52,16 +82,26 @@ function Register() {
 
         <input
           type="text"
-          placeholder="Số điện thoại"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Nhập họ và tên"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
         />
 
         <input
           type="text"
-          placeholder="Nhập họ và tên"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Nhập số CCCD"
+          value={identityNumber}
+          onChange={(e) => setIdentityNumber(e.target.value)}
+          required
+        />
+
+        <input
+          type="text"
+          placeholder="Số điện thoại"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          required
         />
 
         <input
@@ -76,6 +116,7 @@ function Register() {
           placeholder="Nhập mật khẩu"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         {errorMessage && <p className="auth-error">{errorMessage}</p>}
